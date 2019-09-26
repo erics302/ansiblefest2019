@@ -1,0 +1,3 @@
+---
+- src: paloaltonetworks.paloaltonetworks
+  version: v2.2.3

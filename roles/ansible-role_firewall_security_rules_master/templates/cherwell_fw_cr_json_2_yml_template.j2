@@ -1,0 +1,203 @@
+#jinja2:lstrip_blocks: True
+{% set desc_temp = description.split('\n') %}
+    - cr_num: '{{ fw_cr_data_results.json.busObPublicId }}'
+      cr_tag_name: 'CR{{ fw_cr_data_results.json.busObPublicId }}'
+      cherwell_business_object_record_id: '{{ fw_cr_data_results.json.busObRecId }}'
+      desc: "{{ desc_temp[0] | truncate(1023) | regex_replace("'","\'") | regex_replace("\"","") }}"
+      app_ci_name: 'App name {{ app_ci_name_1 }}{{ app_ci_name_2 | regex_replace("\"","") }}'
+{# Set up varibales parsed in ansible to create lists im the yml vars file we are creating.#}
+{% set src_tenant_first = src_tenant_1 %}
+{% set src_tenant_list = [src_tenant_1, src_tenant_2, src_tenant_3, src_tenant_4, src_tenant_5, src_tenant_6] %}
+{# The address fields come from cherwell as EPGNAME:SUBNET, so parse off and use EPGNAME only #}
+{% set src_addr_first_temp = src_addr_1.split(":") %}
+{% set src_addr_first = src_addr_first_temp[0] %}
+{% set src_addr_list = [src_addr_1, src_addr_2, src_addr_3, src_addr_4, src_addr_5, src_addr_6] %}
+{% set dest_tenant_first = dest_tenant_1 %}
+{% set dest_tenant_list = [dest_tenant_1, dest_tenant_2, dest_tenant_3, dest_tenant_4, dest_tenant_5, dest_tenant_6] %}
+{% set dest_addr_first_temp = dest_addr_1.split(":") %}
+{% set dest_addr_first = dest_addr_first_temp[0] %}
+{% set dest_addr_list = [dest_addr_1, dest_addr_2, dest_addr_3, dest_addr_4, dest_addr_5, dest_addr_6] %}
+{% set app_list = [app_1, app_2, app_3, app_4, app_5, app_6, app_7, app_8, app_9, app_10] %}
+{% set inspect_list = [inspect_1, inspect_2, inspect_3, inspect_4, inspect_5, inspect_6, inspect_7, inspect_8, inspect_9, inspect_10] %}
+{% set start_port_list = [start_port_1, start_port_2, start_port_3, start_port_4, start_port_5, start_port_6, start_port_7, start_port_8, start_port_9, start_port_10] %}
+{% set end_port_list = [end_port_1, end_port_2, end_port_3, end_port_4, end_port_5, end_port_6, end_port_7, end_port_8, end_port_9, end_port_10] %}
+{% set service_protocol_list = [service_protocol_1, service_protocol_2, service_protocol_3, service_protocol_4, service_protocol_5, service_protocol_6, service_protocol_7, service_protocol_8, service_protocol_9, service_protocol_10] %}
+      src_tenant:
+{% for x in src_tenant_list %}
+{% if (x != '') %}
+      - '{{ x }}'
+{% else %}
+      - '{{ src_tenant_first }}'
+{% endif %}
+{% endfor %}
+      src_addr:
+{% for z in src_tenant_list|zip(src_addr_list) -%}
+{% set x = z[0] %}
+{% set y = z[1] %}
+{% if (x != '') %}
+{# The address fields come from cherwell as EPGNAME:SUBNET, so parse off and use EPGNAME only #}
+{% set sy = y.split(":") %}
+      - '{{ x }}_{{ sy[0] }}'
+{% else %}
+      - '{{ src_tenant_first }}_{{ src_addr_first }}'
+{% endif %}
+{% endfor %}  
+      dst_tenant:
+{% set index_list_var = dest_tenant_list %}
+{% for x in index_list_var %}
+{% if (x != '') %}
+      - '{{ x }}'
+{% else %}
+      - '{{ dest_tenant_first }}'
+{% endif %}
+{% endfor %}
+      dst_addr:
+{% for z in dest_tenant_list|zip(dest_addr_list) -%}
+{% set x = z[0] %}
+{% set y = z[1] %}
+{% if (x != '') %}
+{# The address fields come from cherwell as EPGNAME:SUBNET, so parse off and use EPGNAME only #}
+{% set sy = y.split(":") %}
+      - '{{ x }}_{{ sy[0] }}'
+{% else %}
+      - '{{ dest_tenant_first }}_{{ dest_addr_first }}'
+{% endif %} 
+{%- endfor %}
+      apps:
+{% for x in app_list %}
+      - '{{ x }}'
+{% endfor %}
+      inspect:
+{% for x in inspect_list %}
+      - '{{ x }}'
+{% endfor %}
+      service_protocol:
+{% for z in service_protocol_list|zip(app_list) -%}
+{% set x = z[0] %}
+{% set y = z[1] %}
+{% set w = y %}
+{% if (x == '' and y != '')  %}
+{% set ports = w.split("_") %}
+      - '{{ ports[0]|upper() }}'
+{% else %}
+      - '{{ x|upper() }}'
+{% endif %} 
+{%- endfor %}
+      start_port:
+{% for z in start_port_list|zip(app_list) -%}
+{% set x = z[0]|regex_replace(',','') %}{#Cherwell api will return integers with , for over 999. #}
+{% set y = z[1] %}
+{% set w = y %}
+{% set ports = w.split("_") %}
+{% if (ports[0] == 'TCP') or (ports[0] == 'UDP') or (ports[0] == '') %}
+{% if (x == '0' and y != '')  %}
+      - '{{ ports[1]|int() }}'
+{% else %}
+{% if (x == '0' and y == '') %}
+      - ''
+{% else %}
+      - '{{ x }}'
+{% endif %}      
+{% endif %} 
+{% else %}
+      - ''
+{% endif %}
+{%- endfor %}
+{# 
+end_port
+Logic of end_port section:
+If end_port is blank and app is not blank,
+Split the app name into the component fields, protocol, startport, endport, appname,
+And write the end port parsed from app name, if applicable.
+else endport not blank so just write the end port 
+#}
+      end_port:
+{% for z in end_port_list|zip(app_list) -%}
+{% set x = z[0]|regex_replace(',','') %}{#Cherwell api will return integers with , for over 999. #}
+{% set y = z[1] %}
+{% set w = y %}
+{% set ports = w.split("_") %}
+{% if (ports[0] == 'TCP') or (ports[0] == 'UDP')  or (ports[0] == '')%}
+{% if (x == '0' and y != '')  %}
+{% if (ports[2]|int() > 0) %}
+      - '{{ ports[2]|int() }}'
+{% else %}
+      - ''
+{% endif %}
+{% else %}
+{% if x == '0' %}
+      - ''
+{% else %}
+      - '{{ x }}'
+{% endif %}
+{% endif %}
+{% else %}
+      - ''
+{% endif %}
+{%- endfor %}
+      palo_service_name:
+{% for z in service_protocol_list|zip(start_port_list, end_port_list, app_list, inspect_list) -%}
+{% set w = z[0] %}
+{% set x = z[1]|regex_replace(',','') %}{#Cherwell api will return integers with , for over 999. #}
+{% set y = z[2]|regex_replace(',','') %}{#Cherwell api will return integers with , for over 999. #}
+{% set a = z[3] %}
+{% set b = z[4] %}
+{% set c = a %}
+{% set s = c.split("_") %}
+{% if (w != '' and x != '0' and y == '0') %}
+      - '{{ w|upper() }}_{{ '%05d' % x|int }}'
+{% endif %}
+{% if (w != '' and x != '0' and y != '0') %}
+      - '{{ w|upper() }}_{{ '%05d' % x|int }}_{{ '%05d' % y|int }}'
+{% endif %}
+{% if (w == '' and x == '0' and y == '0' and a !='' and b == false) %}
+      - 'application-default'
+{% endif %}
+{% if (w == '' and x == '0' and y == '0' and a !='' and b == true) %}
+      - '{{ a | regex_replace('(?!_.*_)_.*$', '') }}'
+{% endif %}
+{% if (w == '' and a =='' ) %}
+      - ''
+{% endif %}
+{% if (w == '' and x != '0' and y == '0' and a != '') %}
+      - '{{ s[0]|upper()}}-{{'%05d' % x|int() }}'
+{% endif %}
+{% if (w == '' and x != '0' and y != '0' and a != '') %}
+      - '{{ s[0]|upper()}}-{{'%05d' % x|int()}}-{{'%05d' % y|int() }}'
+{% endif %}
+{%- endfor %}
+      aci_filter_name:
+{% for z in service_protocol_list|zip(start_port_list, end_port_list, app_list) -%}
+{% set w = z[0] %}
+{% set x = z[1]|regex_replace(',','') %}{#Cherwell api will return integers with , for over 999. #}
+{% set y = z[2]|regex_replace(',','') %}{#Cherwell api will return integers with , for over 999. #}
+{% set a = z[3] %} 
+{% set b = a %}
+{% set s = b.split("_") %}
+{% if (s[0] == 'TCP') or (s[0] == 'UDP')  or (s[0] == '') %}
+{% if (w != '' and x != '0' and y == '0') %}
+      - '{{ w|upper() }}-{{ '%05d' % x|int }}'
+{% endif %}
+{% if (w != '' and x != '0' and y != '0') %}
+      - '{{ w|upper() }}-{{ '%05d' % x|int }}-{{ '%05d' % y|int }}'
+{% endif %}
+{% if (w == '' and x == '0' and y == '0' and a != '') %}
+{% if s[2]|int() != 0 %}
+      - '{{ s[0]|upper()}}-{{'%05d' % s[1]|int()}}-{{'%05d' % s[2]|int() }}'
+{% else %}
+      - '{{ s[0]|upper()}}-{{'%05d' % s[1]|int() }}'
+{% endif %}
+{% endif %}
+{% if (w == '' and a == '') %}
+      - ''
+{% endif %}
+{% if (w == '' and x != '0' and y == '0' and a != '') %}
+      - '{{ s[0]|upper()}}-{{'%05d' % x|int() }}'
+{% endif %}
+{% if (w == '' and x != '0' and y != '0' and a != '') %}
+      - '{{ s[0]|upper()}}-{{'%05d' % x|int()}}-{{'%05d' % y|int() }}'
+{% endif %}
+{% else %}
+      - ''
+{% endif %}
+{%- endfor %}

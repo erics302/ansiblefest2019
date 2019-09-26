@@ -1,0 +1,480 @@
+---
+- name: Retrieve the individual CR with cherwell record id "{{ item }}"
+  uri:
+    url: "{{ cherwell_url_a }}{{ cherwell_url_get_specific_cr_a }}{{ change_request_business_object_id }}{{ cherwell_url_get_specific_cr_b }}{{ item }}"
+    method: GET
+    headers:
+      authorization: "bearer {{ cherwell_api_token }}"
+    body_format: json
+  register: fw_cr_data_results
+
+# SECTION START: Parse variables from Cherwell API call
+### TODO: Would this be more easibly solved in a custom filter, ugly can't figure a way to loop it.
+## Don't need to parse out cr_number itself as that is easily referenced item in the json return data.  See the j2 template.
+- name: Parse out the description field.
+  set_fact:
+    # The | first filter is because json_query pulls the fields as a list even though its only a single element
+    description: "{{ fw_cr_data_results | json_query(\"json.fields[?name=='FW2AppDetails'].value\") | first }}"
+
+- name: Parse out the app_ci_name_1 field.
+  set_fact:
+    app_ci_name_1: "{{ fw_cr_data_results | json_query(\"json.fields[?name=='FW2AppName'].value\") | first }}"
+
+- name: Parse out the app_ci_name_2 field.
+  set_fact:
+    app_ci_name_2: "{{ fw_cr_data_results | json_query(\"json.fields[?name=='FW2AppNameOther'].value\") | first }}"
+
+- name: Parse out the source_tenant_1 field.
+  set_fact:
+    src_tenant_1: "{{ fw_cr_data_results | json_query(\"json.fields[?name=='FW2SourceTenant1'].value\") | first }}"
+
+- name: Parse out the source_tenant_2 field.
+  set_fact:
+    src_tenant_2: "{{ fw_cr_data_results | json_query(\"json.fields[?name=='FW2SourceTenant2'].value\") | first }}"
+
+- name: Parse out the source_tenant_3 field.
+  set_fact:
+    src_tenant_3: "{{ fw_cr_data_results | json_query(\"json.fields[?name=='FW2SourceTenant3'].value\") | first }}"
+
+- name: Parse out the source_tenant_4 field.
+  set_fact:
+    src_tenant_4: "{{ fw_cr_data_results | json_query(\"json.fields[?name=='FW2SourceTenant4'].value\") | first }}"
+
+- name: Parse out the source_tenant_5 field.
+  set_fact:
+    src_tenant_5: "{{ fw_cr_data_results | json_query(\"json.fields[?name=='FW2SourceTenant5'].value\") | first }}"
+
+- name: Parse out the source_tenant_6 field.
+  set_fact:
+    src_tenant_6: "{{ fw_cr_data_results | json_query(\"json.fields[?name=='FW2SourceTenant6'].value\") | first }}"
+
+- name: Parse out the source_Address_1 field.
+  set_fact:
+    src_addr_1: "{{ fw_cr_data_results | json_query(\"json.fields[?name=='FW2SourceAddress1'].value\") | first }}"
+
+- name: Parse out the source_Address_2 field.
+  set_fact:
+    src_addr_2: "{{ fw_cr_data_results | json_query(\"json.fields[?name=='FW2SourceAddress2'].value\") | first }}"
+
+- name: Parse out the source_Address_3 field.
+  set_fact:
+    src_addr_3: "{{ fw_cr_data_results | json_query(\"json.fields[?name=='FW2SourceAddress3'].value\") | first }}"
+
+- name: Parse out the source_Address_4 field.
+  set_fact:
+    src_addr_4: "{{ fw_cr_data_results | json_query(\"json.fields[?name=='FW2SourceAddress4'].value\") | first }}"
+
+- name: Parse out the source_Address_5 field.
+  set_fact:
+    src_addr_5: "{{ fw_cr_data_results | json_query(\"json.fields[?name=='FW2SourceAddress5'].value\") | first }}"
+
+- name: Parse out the source_Address_6 field.
+  set_fact:
+    src_addr_6: "{{ fw_cr_data_results | json_query(\"json.fields[?name=='FW2SourceAddress6'].value\") | first }}"
+
+- name: Parse out the Dest_tenant_1 field.
+  set_fact:
+    dest_tenant_1: "{{ fw_cr_data_results | json_query(\"json.fields[?name=='FW2DestTenant1'].value\") | first }}"
+
+- name: Parse out the Dest_tenant_2 field.
+  set_fact:
+    dest_tenant_2: "{{ fw_cr_data_results | json_query(\"json.fields[?name=='FW2DestTenant2'].value\") | first }}"
+
+- name: Parse out the Dest_tenant_3 field.
+  set_fact:
+    dest_tenant_3: "{{ fw_cr_data_results | json_query(\"json.fields[?name=='FW2DestTenant3'].value\") | first }}"
+
+- name: Parse out the Dest_tenant_4 field.
+  set_fact:
+    dest_tenant_4: "{{ fw_cr_data_results | json_query(\"json.fields[?name=='FW2DestTenant4'].value\") | first }}"
+
+- name: Parse out the Dest_tenant_5 field.
+  set_fact:
+    dest_tenant_5: "{{ fw_cr_data_results | json_query(\"json.fields[?name=='FW2DestTenant5'].value\") | first }}"
+
+- name: Parse out the Dest_tenant_6 field.
+  set_fact:
+    dest_tenant_6: "{{ fw_cr_data_results | json_query(\"json.fields[?name=='FW2DestTenant6'].value\") | first }}"
+
+- name: Parse out the Dest_Address_1 field.
+  set_fact:
+    dest_addr_1: "{{ fw_cr_data_results | json_query(\"json.fields[?name=='FW2DestAddress1'].value\") | first }}"
+
+- name: Parse out the Dest_Address_2 field.
+  set_fact:
+    dest_addr_2: "{{ fw_cr_data_results | json_query(\"json.fields[?name=='FW2DestAddress2'].value\") | first }}"
+
+- name: Parse out the Dest_Address_3 field.
+  set_fact:
+    dest_addr_3: "{{ fw_cr_data_results | json_query(\"json.fields[?name=='FW2DestAddress3'].value\") | first }}"
+
+- name: Parse out the Dest_Address_4 field.
+  set_fact:
+    dest_addr_4: "{{ fw_cr_data_results | json_query(\"json.fields[?name=='FW2DestAddress4'].value\") | first }}"
+
+- name: Parse out the Dest_Address_5 field.
+  set_fact:
+    dest_addr_5: "{{ fw_cr_data_results | json_query(\"json.fields[?name=='FW2DestAddress5'].value\") | first }}"
+
+- name: Parse out the Dest_Address_6 field.
+  set_fact:
+    dest_addr_6: "{{ fw_cr_data_results | json_query(\"json.fields[?name=='FW2DestAddress6'].value\") | first }}"
+
+- name: Parse out the app_1 field.
+  set_fact:
+    app_1: "{{ fw_cr_data_results | json_query(\"json.fields[?name=='FW2ProtocolPort1'].value\") | first }}"
+
+- name: Parse out the app_2 field.
+  set_fact:
+    app_2: "{{ fw_cr_data_results | json_query(\"json.fields[?name=='FW2ProtocolPort2'].value\") | first }}"
+
+- name: Parse out the app_3 field.
+  set_fact:
+    app_3: "{{ fw_cr_data_results | json_query(\"json.fields[?name=='FW2ProtocolPort3'].value\") | first }}"
+
+- name: Parse out the app_4 field.
+  set_fact:
+    app_4: "{{ fw_cr_data_results | json_query(\"json.fields[?name=='FW2ProtocolPort4'].value\") | first }}"
+
+- name: Parse out the app_5 field.
+  set_fact:
+    app_5: "{{ fw_cr_data_results | json_query(\"json.fields[?name=='FW2ProtocolPort5'].value\") | first }}"
+
+- name: Parse out the app_6 field.
+  set_fact:
+    app_6: "{{ fw_cr_data_results | json_query(\"json.fields[?name=='FW2ProtocolPort6'].value\") | first }}"
+
+- name: Parse out the app_7 field.
+  set_fact:
+    app_7: "{{ fw_cr_data_results | json_query(\"json.fields[?name=='FW2ProtocolPort7'].value\") | first }}"
+
+- name: Parse out the app_8 field.
+  set_fact:
+    app_8: "{{ fw_cr_data_results | json_query(\"json.fields[?name=='FW2ProtocolPort8'].value\") | first }}"
+
+- name: Parse out the app_9 field.
+  set_fact:
+    app_9: "{{ fw_cr_data_results | json_query(\"json.fields[?name=='FW2ProtocolPort9'].value\") | first }}"
+
+- name: Parse out the app_10 field.
+  set_fact:
+    app_10: "{{ fw_cr_data_results | json_query(\"json.fields[?name=='FW2ProtocolPort10'].value\") | first }}"
+
+- name: Parse out the service_protocol_1 field.
+  set_fact:
+    service_protocol_1: "{{ fw_cr_data_results | json_query(\"json.fields[?name=='FW2ProtocolType1'].value\") | first }}"
+
+- name: Parse out the service_protocol_2 field.
+  set_fact:
+    service_protocol_2: "{{ fw_cr_data_results | json_query(\"json.fields[?name=='FW2ProtocolType2'].value\") | first }}"
+
+- name: Parse out the service_protocol_3 field.
+  set_fact:
+    service_protocol_3: "{{ fw_cr_data_results | json_query(\"json.fields[?name=='FW2ProtocolType3'].value\") | first }}"
+
+- name: Parse out the service_protocol_4 field.
+  set_fact:
+    service_protocol_4: "{{ fw_cr_data_results | json_query(\"json.fields[?name=='FW2ProtocolType4'].value\") | first }}"
+
+- name: Parse out the service_protocol_5 field.
+  set_fact:
+    service_protocol_5: "{{ fw_cr_data_results | json_query(\"json.fields[?name=='FW2ProtocolType5'].value\") | first }}"
+
+- name: Parse out the service_protocol_6 field.
+  set_fact:
+    service_protocol_6: "{{ fw_cr_data_results | json_query(\"json.fields[?name=='FW2ProtocolType6'].value\") | first }}"
+
+- name: Parse out the service_protocol_7 field.
+  set_fact:
+    service_protocol_7: "{{ fw_cr_data_results | json_query(\"json.fields[?name=='FW2ProtocolType7'].value\") | first }}"
+
+- name: Parse out the service_protocol_8 field.
+  set_fact:
+    service_protocol_8: "{{ fw_cr_data_results | json_query(\"json.fields[?name=='FW2ProtocolType8'].value\") | first }}"
+
+- name: Parse out the service_protocol_9 field.
+  set_fact:
+    service_protocol_9: "{{ fw_cr_data_results | json_query(\"json.fields[?name=='FW2ProtocolType9'].value\") | first }}"
+
+- name: Parse out the service_protocol_10 field.
+  set_fact:
+    service_protocol_10: "{{ fw_cr_data_results | json_query(\"json.fields[?name=='FW2ProtocolType10'].value\") | first }}"
+
+- name: Parse out the start_port_1 field.
+  set_fact:
+    start_port_1: "{{ fw_cr_data_results | json_query(\"json.fields[?name=='FW2StartPort1'].value\") | first }}"
+
+- name: Parse out the start_port_2 field.
+  set_fact:
+    start_port_2: "{{ fw_cr_data_results | json_query(\"json.fields[?name=='FW2StartPort2'].value\") | first }}"
+
+- name: Parse out the start_port_3 field.
+  set_fact:
+    start_port_3: "{{ fw_cr_data_results | json_query(\"json.fields[?name=='FW2StartPort3'].value\") | first }}"
+
+- name: Parse out the start_port_4 field.
+  set_fact:
+    start_port_4: "{{ fw_cr_data_results | json_query(\"json.fields[?name=='FW2StartPort4'].value\") | first }}"
+
+- name: Parse out the start_port_5 field.
+  set_fact:
+    start_port_5: "{{ fw_cr_data_results | json_query(\"json.fields[?name=='FW2StartPort5'].value\") | first }}"
+
+- name: Parse out the start_port_6 field.
+  set_fact:
+    start_port_6: "{{ fw_cr_data_results | json_query(\"json.fields[?name=='FW2StartPort6'].value\") | first }}"
+
+- name: Parse out the start_port_7 field.
+  set_fact:
+    start_port_7: "{{ fw_cr_data_results | json_query(\"json.fields[?name=='FW2StartPort7'].value\") | first }}"
+
+- name: Parse out the start_port_8 field.
+  set_fact:
+    start_port_8: "{{ fw_cr_data_results | json_query(\"json.fields[?name=='FW2StartPort8'].value\") | first }}"
+
+- name: Parse out the start_port_9 field.
+  set_fact:
+    start_port_9: "{{ fw_cr_data_results | json_query(\"json.fields[?name=='FW2StartPort9'].value\") | first }}"
+
+- name: Parse out the start_port_10 field.
+  set_fact:
+    start_port_10: "{{ fw_cr_data_results | json_query(\"json.fields[?name=='FW2StartPort10'].value\") | first }}"
+
+- name: Parse out the end_port_1 field.
+  set_fact:
+    end_port_1: "{{ fw_cr_data_results | json_query(\"json.fields[?name=='FW2EndPort1'].value\") | first }}"
+
+- name: Parse out the end_port_2 field.
+  set_fact:
+    end_port_2: "{{ fw_cr_data_results | json_query(\"json.fields[?name=='FW2EndPort2'].value\") | first }}"
+
+- name: Parse out the end_port_3 field.
+  set_fact:
+    end_port_3: "{{ fw_cr_data_results | json_query(\"json.fields[?name=='FW2EndPort3'].value\") | first }}"
+
+- name: Parse out the end_port_4 field.
+  set_fact:
+    end_port_4: "{{ fw_cr_data_results | json_query(\"json.fields[?name=='FW2EndPort4'].value\") | first }}"
+
+- name: Parse out the end_port_5 field.
+  set_fact:
+    end_port_5: "{{ fw_cr_data_results | json_query(\"json.fields[?name=='FW2EndPort5'].value\") | first }}"
+
+- name: Parse out the end_port_5 field.
+  set_fact:
+    end_port_6: "{{ fw_cr_data_results | json_query(\"json.fields[?name=='FW2EndPort6'].value\") | first }}"
+
+- name: Parse out the end_port_5 field.
+  set_fact:
+    end_port_7: "{{ fw_cr_data_results | json_query(\"json.fields[?name=='FW2EndPort7'].value\") | first }}"
+
+- name: Parse out the end_port_5 field.
+  set_fact:
+    end_port_8: "{{ fw_cr_data_results | json_query(\"json.fields[?name=='FW2EndPort8'].value\") | first }}"
+
+- name: Parse out the end_port_5 field.
+  set_fact:
+    end_port_9: "{{ fw_cr_data_results | json_query(\"json.fields[?name=='FW2EndPort9'].value\") | first }}"
+
+- name: Parse out the end_port_5 field.
+  set_fact:
+    end_port_10: "{{ fw_cr_data_results | json_query(\"json.fields[?name=='FW2EndPort10'].value\") | first }}"
+
+- name: Parse out the inspect_1 field.
+  set_fact:
+    inspect_1: "{{ fw_cr_data_results | json_query(\"json.fields[?name=='FW2DisableDPI1'].value\") | first }}"
+
+- name: Parse out the inspect_2 field.
+  set_fact:
+    inspect_2: "{{ fw_cr_data_results | json_query(\"json.fields[?name=='FW2DisableDPI2'].value\") | first }}"
+
+- name: Parse out the inspect_3 field.
+  set_fact:
+    inspect_3: "{{ fw_cr_data_results | json_query(\"json.fields[?name=='FW2DisableDPI3'].value\") | first }}"
+
+- name: Parse out the inspect_4 field.
+  set_fact:
+    inspect_4: "{{ fw_cr_data_results | json_query(\"json.fields[?name=='FW2DisableDPI4'].value\") | first }}"
+
+- name: Parse out the inspect_5 field.
+  set_fact:
+    inspect_5: "{{ fw_cr_data_results | json_query(\"json.fields[?name=='FW2DisableDPI5'].value\") | first }}"
+
+- name: Parse out the inspect_5 field.
+  set_fact:
+    inspect_6: "{{ fw_cr_data_results | json_query(\"json.fields[?name=='FW2DisableDPI6'].value\") | first }}"
+
+- name: Parse out the inspect_5 field.
+  set_fact:
+    inspect_7: "{{ fw_cr_data_results | json_query(\"json.fields[?name=='FW2DisableDPI7'].value\") | first }}"
+
+- name: Parse out the inspect_5 field.
+  set_fact:
+    inspect_8: "{{ fw_cr_data_results | json_query(\"json.fields[?name=='FW2DisableDPI8'].value\") | first }}"
+
+- name: Parse out the inspect_5 field.
+  set_fact:
+    inspect_9: "{{ fw_cr_data_results | json_query(\"json.fields[?name=='FW2DisableDPI9'].value\") | first }}"
+
+- name: Parse out the inspect_5 field.
+  set_fact:
+    inspect_10: "{{ fw_cr_data_results | json_query(\"json.fields[?name=='FW2DisableDPI10'].value\") | first }}"
+# SECTION END: Parse variables from Cherwell API call
+
+# SECTION START: Cleanup input from Cherwell's poor input validation
+- name: Input validation row1 endport !=0 but startport=0
+  set_fact:
+    start_port_1: "{{ end_port_1 }}"
+  when: start_port_1 == '0' and end_port_1 != '0'
+
+- name: Input validation row_1 end_port == start_port
+  set_fact:
+    end_port_1: '0'
+  when: start_port_1 == end_port_1
+
+- name: Input validation row1 non-standard protocol type set with nonstandard ports = 0
+  set_fact:
+    service_protocol_1: ""
+  when: start_port_1 == '0' and end_port_1 == '0'
+
+- name: Input validation row2 endport !=0 but startport=0
+  set_fact:
+    start_port_2: "{{ end_port_2 }}"
+  when: start_port_2 == '0' and end_port_2 != '0'
+
+- name: Input validation row_2 end_port == start_port
+  set_fact:
+    end_port_2: '0'
+  when: start_port_2 == end_port_2
+
+- name: Input validation row2 non-standard protocol type set with nonstandard ports = 0
+  set_fact:
+    service_protocol_2: ""
+  when: start_port_2 == '0' and end_port_2 == '0'
+
+- name: Input validation row3 endport !=0 but startport=0
+  set_fact:
+    start_port_3: "{{ end_port_3 }}"
+  when: start_port_3 == '0' and end_port_3 != '0'
+
+- name: Input validation row_3 end_port == start_port
+  set_fact:
+    end_port_3: '0'
+  when: start_port_3 == end_port_3
+
+- name: Input validation row3 non-standard protocol type set with nonstandard ports = 0
+  set_fact:
+    service_protocol_3: ""
+  when: start_port_3 == '0' and end_port_3 == '0'
+
+- name: Input validation row4 endport !=0 but startport=0
+  set_fact:
+    start_port_4: "{{ end_port_4 }}"
+  when: start_port_4 == '0' and end_port_4 != '0'
+
+- name: Input validation row_4 end_port == start_port
+  set_fact:
+    end_port_4: '0'
+  when: start_port_4 == end_port_4
+
+- name: Input validation row4 non-standard protocol type set with nonstandard ports = 0
+  set_fact:
+    service_protocol_4: ""
+  when: start_port_4 == '0' and end_port_4 == '0'
+
+- name: Input validation row5 endport !=0 but startport=0
+  set_fact:
+    start_port_5: "{{ end_port_5 }}"
+  when: start_port_5 == '0' and end_port_5 != '0'
+
+- name: Input validation row_5 end_port == start_port
+  set_fact:
+    end_port_5: '0'
+  when: start_port_5 == end_port_5
+
+- name: Input validation row5 non-standard protocol type set with nonstandard ports = 0
+  set_fact:
+    service_protocol_5: ""
+  when: start_port_5 == '0' and end_port_5 == '0'
+
+- name: Input validation row6 endport !=0 but startport=0
+  set_fact:
+    start_port_6: "{{ end_port_6 }}"
+  when: start_port_6 == '0' and end_port_6 != '0'
+
+- name: Input validation row_6 end_port == start_port
+  set_fact:
+    end_port_6: '0'
+  when: start_port_6 == end_port_6
+
+- name: Input validation row6 non-standard protocol type set with nonstandard ports = 0
+  set_fact:
+    service_protocol_6: ""
+  when: start_port_6 == '0' and end_port_6 == '0'
+
+- name: Input validation row7 endport !=0 but startport=0
+  set_fact:
+    start_port_7: "{{ end_port_7 }}"
+  when: start_port_7 == '0' and end_port_7 != '0'
+
+- name: Input validation row_7 end_port == start_port
+  set_fact:
+    end_port_7: '0'
+  when: start_port_7 == end_port_7
+
+- name: Input validation row7 non-standard protocol type set with nonstandard ports = 0
+  set_fact:
+    service_protocol_7: ""
+  when: start_port_7 == '0' and end_port_7 == '0'
+
+- name: Input validation row8 endport !=0 but startport=0
+  set_fact:
+    start_port_8: "{{ end_port_8 }}"
+  when: start_port_8 == '0' and end_port_8 != '0'
+
+- name: Input validation row_8 end_port == start_port
+  set_fact:
+    end_port_8: '0'
+  when: start_port_8 == end_port_8
+
+- name: Input validation row8 non-standard protocol type set with nonstandard ports = 0
+  set_fact:
+    service_protocol_8: ""
+  when: start_port_8 == '0' and end_port_8 == '0'
+
+- name: Input validation row9 endport !=0 but startport=0
+  set_fact:
+    start_port_9: "{{ end_port_9 }}"
+  when: start_port_9 == '0' and end_port_9 != '0'
+
+- name: Input validation row_9 end_port == start_port
+  set_fact:
+    end_port_9: '0'
+  when: start_port_9 == end_port_9
+
+- name: Input validation row9 non-standard protocol type set with nonstandard ports = 0
+  set_fact:
+    service_protocol_9: ""
+  when: start_port_9 == '0' and end_port_9 == '0'
+
+- name: Input validation row10 endport !=0 but startport=0
+  set_fact:
+    start_port_10: "{{ end_port_10 }}"
+  when: start_port_10 == '0' and end_port_10 != '0'
+
+- name: Input validation row_10 end_port == start_port
+  set_fact:
+    end_port_10: '0'
+  when: start_port_10 == end_port_10
+
+- name: Input validation row10 non-standard protocol type set with nonstandard ports = 0
+  set_fact:
+    service_protocol_10: ""
+  when: start_port_10 == '0' and end_port_10 == '0'
+# SECTION END: Cleanup input from Cherwell's poor input validation
+
+- name: Add this CR to the yml file for use later by the palo_security_rule and aci_contract roles.
+  lineinfile:
+    path: "{{ yml_file_of_cr_values }}"
+    line: "{{ lookup('template', 'cherwell_fw_cr_json_2_yml_template.j2') }}"
+    insertafter: EOF

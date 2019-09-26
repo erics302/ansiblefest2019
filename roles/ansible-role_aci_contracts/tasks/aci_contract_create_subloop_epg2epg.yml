@@ -1,0 +1,31 @@
+---
+- name: instantiate contract, subjects and subject_filters
+  include: aci_contract_instantiate.yml
+  when: not(return_val_epg == source_epg_aci_string)
+  # Conditional to prevent contracts between two vips in the same EPG.  Earlier in the role, aci_address_list_cleanup.yml eliminates contracts requested been the same EPG which is possible through the cherwell process.
+
+- name: Add consumed contract "{{ contract_name }}" to source EPG "{{ source_epg }}"
+  aci_epg_to_contract:
+    host: "{{ ansible_host }}"
+    username: "{{ ansible_user }}"
+    password: "{{ password }}"
+    validate_certs: no
+    state: present
+    tenant: "{{ source_item.split('_')[0] | regex_replace('(common).*','\\1') }}"
+    ap: "{{ source_ap_aci_string }}"
+    epg: "{{ source_epg_aci_string }}"
+    contract: "{{ contract_name }}"
+    contract_type: consumer
+
+- name: Add provided contract "{{ contract_name }}" to dest EPG "{{ return_val_epg }}"
+  aci_epg_to_contract:
+    host: "{{ ansible_host }}"
+    username: "{{ ansible_user }}"
+    password: "{{ password }}"
+    validate_certs: no
+    state: present
+    tenant: "{{ destination_item.split('_')[0] | regex_replace('(common).*','\\1') }}"
+    ap: "{{ return_val_ap }}"
+    epg: "{{ return_val_epg }}"
+    contract: "{{ contract_name }}"
+    contract_type: provider

@@ -1,0 +1,87 @@
+---
+# SECTION START: Handle name modification for tenant/vrf wide objects
+- name: Split source address "{{ item.1 }}" at _ to check if this is a vrf-wide object
+  set_fact:
+    source_addr_no_tenant: "{{ item.1.split('_')[1] }}"
+
+- name: Set source addr "{{ item.1 }}"  for intertenant list if this is a vrfwide source object
+  set_fact:
+    source_item_1: "{{ source_addr_no_tenant }}"
+  when: source_addr_no_tenant == item.0
+
+- name: Set source addr "{{ item.1 }}" for intertenant list if this is NOT a vrfwide source object
+  set_fact:
+    source_item_1: "{{ item.1 }}"
+  when: not(source_addr_no_tenant == item.0)
+
+- name: Split dest address "{{ item.3 }}" at _ to check if this is a vrf-wide object
+  set_fact:
+    dest_addr_no_tenant: "{{ item.3.split('_')[1] }}"
+
+- name: Set dest addr for "{{ item.3 }}" intertenant list if this is a vrfwide source object
+  set_fact:
+    dest_item_3: "{{ dest_addr_no_tenant }}"
+  when: dest_addr_no_tenant == item.2
+
+- name: Set dest addr "{{ item.3 }}" for intertenant list if this is NOT a vrfwide source object
+  set_fact:
+    dest_item_3: "{{ item.3 }}"
+  when: not(dest_addr_no_tenant == item.2)
+# SECTION END: Handle variable value modification for tenant/vrf wide objects in source/dest address objects
+
+# SECTION START: Set WAN policy source/dest address object lists
+- name: set inter-tenant(and non user-id) source addr list for "{{ item.0 }}" / "{{ source_item_1 }}"
+  set_fact:
+    intertenant_source_address_list: "{{ intertenant_source_address_list }} + [ '{{ source_item_1 }}' ]"
+    intertenant_source_zone_list: "{{ intertenant_source_zone_list }} + [ '{{ item.0 }}' ]"
+  when: (not(item.0 == item.2) and not(item.1 == item.3) and not(item.0 == 'INTERNET') and not(item.1 is search("sec-ia-")))
+
+- name: set inter-tenant(or user-id) dest addr "{{ item.2 }}" / "{{ dest_item_3 }}"
+  set_fact:
+    intertenant_dest_address_list: "{{ intertenant_dest_address_list }} + [ '{{ dest_item_3 }}' ]"
+    intertenant_dest_zone_list: "{{ intertenant_dest_zone_list }} + [ '{{ item.2 }}' ]"
+  when: ((not(item.0 == item.2) and not(item.1 == item.3) and not(item.2 == 'INTERNET') and not(item.3 is search("sec-ia-"))) or (not(item.1 == item.3) and not(item.0 == 'INTERNET') and (item.1 is search("sec-ia-"))))
+
+- name: set inter-tenant source userid list for "{{ item.0 }}" / "{{ source_item_1 }}"
+  set_fact:
+    intertenant_source_user_list: "{{ intertenant_source_user_list }} +  [ '{{ source_item_1 }}' ]"
+  when: (not(item.1 == item.3) and not(item.0 == 'INTERNET') and (item.1 is search("sec-ia-")))
+# SECTION END: Set WAN policy source/dest address object lists
+
+### There are four possible scenarios in an automated firewall rule request that requires policy to be added to Internet firewalls.
+## Scenario 1: SRC: Internet object(1 or more) DST: public object (1 or more)
+## Scenario 2: SRC: Inside object, DST: Internet
+## Scenario 3: SRC Inside, DST Internet AND an Inside
+## Scenario 4: SRC inside userid group, dest Internet
+# SECTION START: Scenario 1: SRC: Internet object(1 or more) DST: public object (1 or more)
+- name: set internet source address list for "{{ source_item_1 }}"
+  set_fact:
+    internet_source_address_list: "{{ internet_source_address_list }} + [ '{{ source_item_1 }}' ]"
+    internet_source_zone_list: ["INTERNET"]
+    internet_dest_address_list: "{{ internet_dest_address_list }} + [ '{{ dest_item_3 }}' ]"
+    internet_dest_zone_list: "{{ internet_dest_zone_list }} + [ '{{ item.2 }}' ]"
+    internet_inbound_rule_check: true
+  when: (item.0 == "INTERNET") and ("INTERNET" not in cr_line.dst_tenant)
+  # TODO: and item.3 is a public IP
+# SECTION END: Scenario 1: SRC: Internet object(1 or more) DST: public object (1 or more)
+
+# SECTION START: Scenario 2 - 4
+- name: set internet destination list add "{{ dest_item_3 }}"
+  set_fact:
+    internet_dest_address_list: "{{ internet_dest_address_list }} + [ '{{ dest_item_3 }}' ]"
+    internet_dest_zone_list: ["INTERNET"]
+  when: ("INTERNET" not in cr_line.src_tenant) and (item.2 == "INTERNET")
+  # TODO: and item.1 is a private IP
+
+- name: set internet source address list add "{{ source_item_1 }}"
+  set_fact:
+    internet_source_address_list: "{{ internet_source_address_list }} + [ '{{ source_item_1 }}' ]"
+    internet_source_zone_list: "{{ internet_source_zone_list }} + [ '{{ item.0  }}' ]"
+  when: ("INTERNET" not in cr_line.src_tenant) and (item.2 == "INTERNET") and not(item.1 is search("sec-ia-"))
+
+- name: set internet source user-id list
+  set_fact:
+    internet_source_user_list: "{{ internet_source_address_list }} + [ '{{ source_item_1 }}' ]"
+  when: ("INTERNET" not in cr_line.src_tenant) and (item.2 == "INTERNET") and (item.1 is search("sec-ia-"))
+
+# SECTION END: Scenario 2 - 4

@@ -1,0 +1,42 @@
+---
+- name: Prepare variable to pass to aci_get_exact_vrf_name.yml
+  set_fact:
+    tenant_to_find_vrf_name: "{{ source_tenant }}"
+
+- name: Get the exact vrf name from the tenant value "{{ source_tenant }}"
+  include: aci_get_exact_vrf_name.yml
+
+- name: Create the rest content for vzany contract attachment to the vrf {{ source_tenant }}
+  set_fact:
+    aci_vz_any_xml_value: "{{ lookup('template', 'rest_url_vrf_content.j2') }}"
+
+- name: Attach vzany contract "{{ contract_name }}" to vrf "{{ j2_vrf_string }}"
+  aci_rest:
+    host: "{{ ansible_host }}"
+    username: "{{ ansible_user }}"
+    password: "{{ password }}"
+    validate_certs: no
+    path: /api/mo/uni.xml
+    method: post
+    content: "{{ aci_vz_any_xml_value }}"
+  delegate_to: localhost
+
+- name: include ap_epg_query.yml for destination "{{ destination_item }}"
+  include: ap_epg_query.yml
+  with_items:
+    - "{{ destination_item }}"
+  loop_control:
+    loop_var: epg_name
+
+- name: Add provided contract "{{ contract_name }}" to dest EPG "{{ return_val_epg }}"
+  aci_epg_to_contract:
+    host: "{{ ansible_host }}"
+    username: "{{ ansible_user }}"
+    password: "{{ password }}"
+    validate_certs: no
+    state: present
+    tenant: "{{ destination_item.split('_')[0] | regex_replace('(common).*','\\1') }}"
+    ap: "{{ return_val_ap }}"
+    epg: "{{ return_val_epg }}"
+    contract: "{{ contract_name }}"
+    contract_type: provider

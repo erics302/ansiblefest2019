@@ -1,0 +1,12 @@
+---
+# Create entries in the cherwell form for special objects.  Syntatically special objects have no underscore in the name.  Examples at the time of this writing include tenant names.
+## Write out the tenant name and addres name as the same value and provide no IP address value in the form.
+- debug:
+    msg: "Special object {{ address_group_name_var }}"
+
+- name: Add this object to CSV file
+  lineinfile:
+    path: "{{ address_group_csv_file }}"
+    line: "{{ lookup('template', 'csv_template_special_groups.j2') }}"
+    insertafter: EOF
+  when: not(address_group_name_var=='common')

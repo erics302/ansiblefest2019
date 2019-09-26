@@ -1,0 +1,8 @@
+---
+aci_bd_facts_file: aci_bd_facts_file.yml
+file_repo_url: 'https://{{ URL }}/{{ aci_bd_facts_file }}'
+file_repo_upload_file: "{{ lookup('file', '{{ aci_bd_facts_file }}') }}"
+aci_bd_facts_header_template: aci_bd_facts_header_template.j2
+aci_bd_facts_line_template: aci_bd_facts_line_template.j2
+excluded_tenants:
+  - 'infra'

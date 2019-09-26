@@ -1,0 +1,28 @@
+---
+# loop3.yml aka the loop on the destination addresses.
+# This playbook is looped through per dest EPG from loop2.yml, loop2.yml being a parent loop of the sources.
+### START_SECTION: set fact vars|templates for conditionals.  Ansible warns on jinja2 templating in when statements so this is the workaround to use set_fact.
+- name: Split tenant and EPG name portion from "{{ destination_item }}"
+  set_fact:
+    dest_tenant: "{{ destination_item.split('_')[0] }}"
+    dest_epg: "{{ destination_item.split('_')[1] }}"
+
+### END_SECTION: set fact vars|templates for conditionals.  Ansible warns on jinja2 templating in when statements.
+
+- name: include ap_epg_query.yml for destination "{{ destination_item }}"
+  include: ap_epg_query.yml
+  with_items:
+    - "{{ destination_item }}"
+  loop_control:
+    loop_var: epg_name
+  when: not(dest_tenant==dest_epg)
+
+# Conditional split here on vrf contract vs epg to epg contract
+- name: Call playbook for a vrf contract
+  include: aci_contract_create_subloop_vrfwide.yml
+  when: (source_tenant == source_epg) or (dest_tenant == dest_epg)
+
+- name: Call playbook for a EPG to EPG contracts
+  include: aci_contract_create_subloop_epg2epg.yml
+  when: (not(source_tenant == source_epg)) and (not(dest_tenant == dest_epg)) and (not(return_val_epg == source_epg_aci_string))
+  # Conditionals to prevent: 1. vrf-wide contract as the source, 2. vrf-wide contract as the dest, 3. contracts between two vips in the same EPG.  Earlier in the role, aci_address_list_cleanup.yml eliminates contracts requested been the same EPG which is possible through the cherwell process.

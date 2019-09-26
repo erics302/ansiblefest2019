@@ -1,0 +1,53 @@
+---
+# SECTION START: One time file operations
+- name: remove old import file if exists.
+  file:
+    path: "{{ yml_file_of_cr_values }}"
+    state: absent
+
+- name: Get Cherwell CR list from file_repo
+  get_url:
+    url: "{{ file_repo_url }}"
+    dest: "./{{ yml_file_of_cr_values }}"
+    mode: '666'
+# SECTION END: One time file operations
+
+# SECTION START: One time variable files
+- name: Import Cherwell CR list as a var
+  include_vars: "{{ yml_file_of_cr_values }}"
+
+- name: get palo secrets
+  include_vars: panos-secrets.yml
+  no_log: yes
+  ignore_errors: yes
+
+# SECTION END: One time variable files
+
+# Loop through each line of the import, one fw rule CR per line on the import file.
+- name: loop.yml
+  include_tasks: loop.yml
+  with_items: "{{ cr }}"
+  loop_control:
+    loop_var: cr_line
+  when: not(cr is none)
+
+- block:
+    - name: commit device group "{{ palo_device_group_for_objects }}"
+      panos_commit:
+        ip_address: "{{ ip_address }}"
+        api_key: "{{ api_string }}"
+        device_group: "{{ palo_device_group_for_objects }}"
+
+    - name: commit device group "{{ palo_device_group_wan }}"
+      panos_commit:
+        ip_address: "{{ ip_address }}"
+        api_key: "{{ api_string }}"
+        device_group: "{{ palo_device_group_wan }}"
+
+    - name: commit device group "{{ palo_device_group_internet }}"
+      panos_commit:
+        ip_address: "{{ ip_address }}"
+        api_key: "{{ api_string }}"
+        device_group: "{{ palo_device_group_internet }}"
+
+  when: not(cr is none)

@@ -1,0 +1,24 @@
+---
+- name: Create port range var if applicable.  palo_security_rules/create_service.yml
+  set_fact:
+    palo_service_port: "{{ '-'.join(('{{ item.2 }}', '{{ item.3 }}')) }}"
+  when: not(item.3 == '' and item.0 == '')
+
+- name: Create port norange var if applicable.  palo_security_rules/create_service.yml
+  set_fact:
+    palo_service_port: "{{ item.2 }}"
+  when: item.3 == '' and not(item.0 == '')
+
+- name: Create service "{{ item.0 }}"
+  panos_service_object:
+    ip_address: "{{ ip_address }}"
+    api_key: "{{ api_string }}"
+    device_group: "{{ palo_device_group_for_objects }}"
+    state: 'present'
+    name: "{{ item.0 }}"
+    protocol: "{{ item.1 | lower() }}"
+    destination_port: "{{ palo_service_port }}"
+    commit: false
+  ignore_errors: yes
+  # Ignore errors cause this might already exist; faster then checking before trying to add
+  when: not(item.0 == "application-default" or item.0 == '')

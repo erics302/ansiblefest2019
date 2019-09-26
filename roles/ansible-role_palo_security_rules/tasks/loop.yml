@@ -1,0 +1,170 @@
+---
+### loop is per CR downloaded in this playbook run.
+- name: Courtesy message, starting Palo processing for ""{{ cr_line.cr_tag_name }}"
+  debug:
+    msg: "Starting palo_security_rules/loop.yml on {{ cr_line.cr_tag_name }}"
+
+- name: Instantiate clean var for this loop iteration "{{ cr_line.cr_tag_name }}" (one loop iteration per CR).
+  set_fact:
+    intertenant_source_address_list: []
+    intertenant_dest_address_list: []
+    intertenant_source_user_list: []
+    internet_source_address_list: []
+    internet_dest_address_list: []
+    internet_source_user_list: []
+    applications_appid_list: []
+    applications_appid_nonstandard_port_list: []
+    services_appid_nonstandard_port_list: []
+    service_only_list: []
+    internet_inbound_rule_check: false
+    intertenant_source_zone_list: []
+    intertenant_dest_zone_list: []
+    internet_source_zone_list: []
+    internet_dest_zone_list: []
+
+# SECTION START: Source/dest address lists are determined for WAN and Internet device group policies.  IE remove src/dest pairs that are for aci contracts and set WAN pairs for wan policy and Internet source/dest pairs that would go on Internet policies
+- name: Loop through source/dest objects and remove intra-tenant pairs and Internet addresses.  Establish source/dest lists for WAN device group policies.
+  include: palo_address_list_cleanup.yml
+  with_together:
+    - "{{ cr_line.src_tenant }}"
+    - "{{ cr_line.src_addr }}"
+    - "{{ cr_line.dst_tenant }}"
+    - "{{ cr_line.dst_addr }}"
+
+# Dedup is important because we duped items in our input list because duplicates field values can and will be applied in Palo creating a cosmetic issue in policy.
+- name: de-dup add lists
+  set_fact:
+    intertenant_source_address_list: "{{ intertenant_source_address_list | unique }}"
+    intertenant_dest_address_list: "{{ intertenant_dest_address_list | unique }}"
+    intertenant_source_user_list: "{{ intertenant_source_user_list | unique }}"
+    internet_source_address_list: "{{ internet_source_address_list | unique }}"
+    internet_dest_address_list: "{{ internet_dest_address_list | unique }}"
+    internet_source_user_list: "{{ internet_source_user_list | unique }}"
+    intertenant_source_zone_list: "{{ intertenant_source_zone_list | unique }}"
+    intertenant_dest_zone_list: "{{ intertenant_dest_zone_list | unique }}"
+    internet_source_zone_list: "{{ internet_source_zone_list | unique }}"
+    internet_dest_zone_list: "{{ internet_dest_zone_list | unique }}"
+
+# SECTION END: Source/dest address lists are determined for WAN and Internet device group policies.  IE remove src/dest pairs that are for aci contracts and set WAN pairs for wan policy and Internet source/dest pairs that would go on Internet policies
+
+- name: Create tag for {{ cr_line.cr_tag_name }}
+  panos_tag_object:
+    ip_address: "{{ ip_address }}"
+    api_key: "{{ api_string }}"
+    device_group: "{{ palo_device_group_for_objects }}"
+    state: present
+    name: "{{ cr_line.cr_tag_name }}"
+    color: "light gray"
+    commit: false
+  when: (intertenant_source_address_list | length > 0 and intertenant_dest_address_list | length > 0) or (internet_source_address_list | length > 0 and internet_dest_address_list | length > 0) or (intertenant_source_user_list | length > 0 and intertenant_dest_address_list | length > 0) or (internet_source_user_list | length > 0 and internet_dest_address_list | length > 0)
+
+# SECTION START: Establish the lists for appid, vs services, vs appid with nonstandard ports.
+- name: app_or_service_rules_cleanup.yml
+  include: app_or_service_rules_cleanup.yml
+  with_together:
+    - "{{ cr_line.apps }}"
+    - "{{ cr_line.inspect }}"
+    - "{{ cr_line.palo_service_name }}"
+
+- name: de-dup app and service lists.
+  set_fact:
+    applications_appid_list: "{{ applications_appid_list | unique }}"
+    service_only_list: "{{ service_only_list | unique }}"
+    applications_appid_nonstandard_port_list: "{{ applications_appid_nonstandard_port_list | unique }}"
+    services_appid_nonstandard_port_list: "{{ services_appid_nonstandard_port_list | unique }}"
+
+- name: Create services if applicable.
+  include: create_service.yml
+  with_together:
+    - "{{ cr_line.palo_service_name }}"
+    - "{{ cr_line.service_protocol }}"
+    - "{{ cr_line.start_port }}"
+    - "{{ cr_line.end_port }}"
+  when: (intertenant_source_address_list | length > 0 and intertenant_dest_address_list | length > 0) or (internet_source_address_list | length > 0 and internet_dest_address_list | length > 0) or (intertenant_source_user_list | length > 0 and intertenant_dest_address_list | length > 0) or (internet_source_user_list | length > 0 and internet_dest_address_list | length > 0)
+
+# SECTION END: Establish the lists for appid, vs services, vs appid with nonstandard ports.
+
+# SECTION START: Write WAN policy to WAN device group for address based rules (non user-id)
+- name: Set vars to intertenant address rules (non-user id)
+  set_fact:
+    device_group_to_conf: "{{ palo_device_group_wan }}"
+    source_address_list_to_conf: "{{ intertenant_source_address_list }}"
+    source_user_list_to_conf: "any"
+    dest_address_list_to_conf: "{{ intertenant_dest_address_list }}"
+    rule_name_standard_app: "asaa{{ cr_line.cr_num }}"
+    rule_name_standard_service: "assa{{ cr_line.cr_num }}"
+    rule_name_nonstandard_app_service: "ansa{{ cr_line.cr_num }}"
+    security_profile_to_conf: "{{ security_profile_wan }}"
+    source_zones_to_conf: "{{ intertenant_source_zone_list }}"
+    dest_zones_to_conf: "{{ intertenant_dest_zone_list }}"
+
+- name: include panos_security_rule_create when intertenant source/dest pairs exist
+  include: panos_security_rule_create.yml
+  when: intertenant_source_address_list | length > 0 and intertenant_dest_address_list | length > 0
+
+# SECTION END: Write WAN policy to WAN device group for address based rules (non user-id)
+
+# SECTION START: Write Internet policy to Internet device group for address based rules (non user-id)
+- name: Set vars to internet address rules (non-user id)
+  set_fact:
+    device_group_to_conf: "{{ palo_device_group_internet }}"
+    source_address_list_to_conf: "{{ internet_source_address_list }}"
+    source_user_list_to_conf: "any"
+    dest_address_list_to_conf: "{{ internet_dest_address_list }}"
+    rule_name_standard_app: "asaa{{ cr_line.cr_num }}"
+    rule_name_standard_service: "assa{{ cr_line.cr_num }}"
+    rule_name_nonstandard_app_service: "ansa{{ cr_line.cr_num }}"
+    security_profile_to_conf: "{{ security_profile_inet_outbound }}"
+    source_zones_to_conf: "{{ internet_source_zone_list }}"
+    dest_zones_to_conf: "{{ internet_dest_zone_list }}"
+
+- name: Set inbound security profile if applicable (outbound is the default in set vars above)
+  set_fact:
+    security_profile_to_conf: "{{ security_profile_inet_inbound }}"
+  when: internet_inbound_rule_check == True
+
+- name: include panos_security_rule_create for Internet policies
+  include: panos_security_rule_create.yml
+  when: internet_source_address_list | length > 0 and internet_dest_address_list | length > 0
+
+# SECTION START: Write Internet policy to Internet device group for address based rules (non user-id)
+
+# SECTION START: Write WAN policy to WAN device group for user id rules
+- name: Set vars to intertenant user id rules
+  set_fact:
+    device_group_to_conf: "{{ palo_device_group_wan }}"
+    source_address_list_to_conf: "any"
+    source_user_list_to_conf: "{{ intertenant_source_user_list }}"
+    dest_address_list_to_conf: "{{ intertenant_dest_address_list }}"
+    rule_name_standard_app: "asau{{ cr_line.cr_num }}"
+    rule_name_standard_service: "assu{{ cr_line.cr_num }}"
+    rule_name_nonstandard_app_service: "ansu{{ cr_line.cr_num }}"
+    security_profile_to_conf: "{{ security_profile_wan }}"
+    source_zones_to_conf: "{{ zone_list_source_userid }}"
+    dest_zones_to_conf: "{{ intertenant_dest_zone_list }}"
+
+- name: include panos_security_rule_create when intertenant source/dest pairs exist
+  include: panos_security_rule_create.yml
+  when: intertenant_source_user_list | length > 0 and intertenant_dest_address_list | length > 0
+
+# SECTION END: Write WAN policy to WAN device group for user id rules
+
+# SECTION START: Write Internet policy to Internet device group for user-id rules
+- name: Set vars to internet user id rules
+  set_fact:
+    device_group_to_conf: "{{ palo_device_group_internet }}"
+    source_address_list_to_conf: "any"
+    source_user_list_to_conf: "{{ internet_source_user_list }}"
+    dest_address_list_to_conf: "{{ internet_dest_address_list }}"
+    rule_name_standard_app: "asau{{ cr_line.cr_num }}"
+    rule_name_standard_service: "assu{{ cr_line.cr_num }}"
+    rule_name_nonstandard_app_service: "ansu{{ cr_line.cr_num }}"
+    security_profile_to_conf: "{{ security_profile_inet_outbound }}"
+    source_zone_to_conf: "{{ zone_list_source_userid }}"
+    destination_zone_to_conf: "{{ internet_dest_zone_list }}"
+
+- name: include panos_security_rule_create for Internet policies
+  include: panos_security_rule_create.yml
+  when: internet_source_user_list | length > 0 and internet_dest_address_list | length > 0
+
+# SECTION END: Write Internet policy to Internet device group for user-id rules

@@ -1,0 +1,6 @@
+---
+panos_template: "{{ PANORAMA_TEMPLATE_NAME }}"
+server1: 'ldap://127.0.0.1'
+base_OU: "ou=OU2,ou=OU1,ou=groups,dc=contoso,dc=local"
+panos_group_mapping_name: "USER_GROUP_MAPPING_NAME"
+

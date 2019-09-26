@@ -1,0 +1,119 @@
+---
+#SECTION START: One time file operations
+- name: remove old import file if exists.
+  file:
+    path: "{{ aci_bd_facts_yml_file }}"
+    state: absent
+
+#- name: Create new vars file
+#  file:
+#    path: "{{ aci_bd_facts_yml_file }}"
+#    state: touch
+#    mode: 0666
+
+- name: Get ACI BD list from file_repo
+  get_url:
+    url: "{{ file_repo_url }}"
+    dest: "./{{ aci_bd_facts_yml_file }}"
+    mode: '666'
+#SECTION END: One time file operations
+
+#SECTION START: One time variable files
+- name: Import ACI BD facts as a var
+  include_vars: "{{ aci_bd_facts_yml_file }}"
+
+- name: get palo secrets
+  include_vars: panos-secrets.yml
+  no_log: yes
+  ignore_errors: yes
+#SECTION END: One time variable files
+
+#SECTION_START: Retrieve list of address-groups already configured on PANOS.  This list is used to skip configuration of existing objects
+- name: Create URL to rest url
+  set_fact:
+    rest_url_address_groups: "{{ ''.join(('https://', '{{ ip_address }}', '{{ rest_url_show_address_groups_a }}', '{{ palo_device_group }}', '{{ rest_url_show_address_groups_b }}', '{{ api_string }}')) }}"
+
+- name: Query for list of existing address group in PANOS
+  uri:
+    url: "{{ rest_url_address_groups }}"
+    method: GET
+    validate_certs: no
+    return_content: yes
+  register: return_data_address_groups
+
+- name: parse address groups from XML data
+  xml:
+    xmlstring: "{{ return_data_address_groups.content }}"
+    xpath: //address-group/entry
+    content: attribute
+    attribute: name
+  register: return_data_address_groups_semi_parsed
+
+- name: Now pull out a ansible list of just address-group name values.
+  set_fact:
+    addr_groups_already_created: "{{ return_data_address_groups_semi_parsed | json_query ('matches[*].*.name') | flatten() }}"
+#SECTION_END: Retrieve list of address-groups already configured on PANOS.  This list is used to skip configuration of existing objects
+
+#SECTION_START: Retrieve list of tags already configured on PANOS.  This list is used to skip configuration of existing objects
+- name: Create URL to rest url
+  set_fact:
+    rest_url_tag: "{{ ''.join(('https://', '{{ ip_address }}', '{{ rest_url_show_tag_a }}', '{{ palo_device_group }}', '{{ rest_url_show_tag_b }}', '{{ api_string }}')) }}"
+
+- name: Query for list of tag objects already in PANOS
+  uri:
+    url: "{{ rest_url_tag }}"
+    method: GET
+    validate_certs: no
+    return_content: yes
+  register: return_data_tag
+
+- name: parse tag object names from XML data
+  xml:
+    xmlstring: "{{ return_data_tag.content }}"
+    xpath: //tag/entry
+    content: attribute
+    attribute: name
+  register: tag_already_configured_in_panos
+
+- name: parse names
+  set_fact:
+    tags_already_created: "{{ tag_already_configured_in_panos | json_query ('matches[*].*.name') | flatten() }}"
+#SECTION_END: Retrieve list of tags already configured on PANOS.  This list is used to skip configuration of existing objects
+
+#SECTION_START: Retrieve list of address objects already configured on PANOS.  This list is used to skip configuration of existing objects
+- name: Create URL to rest url
+  set_fact:
+    rest_url_address: "{{ ''.join(('https://', '{{ ip_address }}', '{{ rest_url_show_address_a }}', '{{ palo_device_group }}', '{{ rest_url_show_address_b }}', '{{ api_string }}')) }}"
+
+- name: Query for list of address objects already in PANOS
+  uri:
+    url: "{{ rest_url_address }}"
+    method: GET
+    validate_certs: no
+    return_content: yes
+  register: return_data_address
+
+- name: parse address objects from XML data
+  xml:
+    xmlstring: "{{ return_data_address.content }}"
+    xpath: //address/entry
+    content: attribute
+    attribute: name
+  register: address_already_configured_in_panos
+
+- name: parse address object names into ansible list variable
+  set_fact:
+    address_object_already_created: "{{ address_already_configured_in_panos | json_query ('matches[*].*.name') | flatten() }}"
+#SECTION_END: Retrieve list of address objects already configured on PANOS.  This list is used to skip configuration of existing objects
+
+- name: Run each BD through loop.yml
+  include: loop.yml
+  loop: "{{ aci_subnet }}"
+  loop_control:
+    loop_var: outer_bd
+
+- name: commit candidate config on Panorama using api_key
+  panos_commit:
+    ip_address: "{{ ip_address }}"
+    api_key: "{{ api_string }}"
+    devicegroup: "{{ palo_device_group }}"

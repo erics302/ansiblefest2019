@@ -1,0 +1,29 @@
+---
+- name: get a list of all vrf
+  aci_vrf:
+    host: "{{ ansible_host }}"
+    username: "{{ ansible_user }}"
+    password: "{{ password }}"
+    state: query
+    validate_certs: no
+    tenant: "{{ tenant_to_find_vrf_name  | regex_replace('(common).*','\\1') }}"
+  register: vrf_list_query_result
+
+- name: Parse out VRF names from the aci_vrf query
+  set_fact:
+    vrf_name_list: "{{ vrf_list_query_result | json_query('current[*].fvTenant.children[*].fvCtx.attributes.name') | flatten() }}"
+
+- name: grab first of "list' of vrfs when not common tenant, as all other tenant have one vrf.
+  set_fact:
+    j2_vrf_string: "{{ vrf_name_list | first }}"
+  when: not(tenant_to_find_vrf_name is search("common"))
+
+- name: If tenant common, parse the word common out of "{{ tenant_to_find_vrf_name }}" so we can use the remainder to search the vrf list for the exact vrf name.
+  set_fact:
+    vrf_search_string: "{{ tenant_to_find_vrf_name | regex_replace('common(.*)', '\\1') }}"
+
+- name: grab vrf name if tenant is common
+  set_fact:
+    j2_vrf_string: "{{ item }}"
+  when: item is search(vrf_search_string)
+  with_list: "{{ vrf_name_list | flatten() }}"

@@ -1,0 +1,84 @@
+---
+# SECTION START: One time file ops
+- name: Archive CSV from last run
+  copy:
+    src: "{{ yml_file_of_cr_values }}"
+    dest: "{{ archive_yml_file_of_cr_values }}"
+  ignore_errors: yes
+
+- name: Delete yml vars from last run now that we made an archive copy
+  file:
+    path: "{{ yml_file_of_cr_values }}"
+    state: absent
+  ignore_errors: yes
+
+- name: Create new yml file of the vars we pull from Cherwell for each CR.
+  file:
+    path: "{{ yml_file_of_cr_values }}"
+    state: touch
+    mode: 0666
+
+- name: Add the one time header values to your yml vars file of the CR
+  lineinfile:
+    path: "{{ yml_file_of_cr_values }}"
+    line: "{{ lookup('template', 'cherwell_fw_cr_header_template.j2') }}"
+    insertafter: EOF
+# SECTION END: One time file ops
+
+- name: Parse out fieldID from template for cherwell changerequest type field
+  set_fact:
+    change_request_fieldid_type: "{{ item.fieldId }}"
+  with_items:
+    - "{{ fieldid_busobj_template_result.json.fields }}"
+  when: item.displayName == "Type"
+
+- name: Adhoc query to cherwell for firewall CR in an approved/scheduled state.
+  uri:
+    url: "{{ cherwell_url_a }}{{ cherwell_getsearchresults_url }}"
+    method: POST
+    headers:
+      authorization: "bearer {{ cherwell_api_token }}"
+    body_format: json
+    body: '
+      {
+        "busObId": "{{ change_request_business_object_id }}",
+        "filters": [
+          {
+            "fieldId": "{{ change_request_fieldid_type }}",
+            "operator": "eq",
+            "value": "{{ cherwell_cr_type_value }}"
+          },
+          {
+            "fieldId": "{{ change_request_fieldid_status }}",
+            "operator": "eq",
+            "value": "{{ cherwell_cr_status_value }}"
+          }
+          ]
+        }'
+  register: cr_query_result
+
+- name: Parse/Create list of CRs from query.
+  # Get the Cherwell busObRecId of each fw CR from the query call.
+  set_fact:
+    cherwell_fw_cr_business_object_rec_list: "{{ cr_query_result | json_query('json.businessObjects[*].busObRecId') }}"
+
+- name: Loop through CRs and create yml var file containing pertinet fields
+  include_tasks: retrieve_mode_loop.yml
+  with_items:
+    - "{{ cherwell_fw_cr_business_object_rec_list }}"
+
+- name: Close cherwell API connection now that we are done with it for "{{ run_mode }}" mode.
+  import_tasks: cherwell_api_close.yml
+
+- name: upload export file to file_repo
+  uri:
+    url: "{{ file_repo_url }}"
+    method: PUT
+    body_format: raw
+    body: "{{ file_repo_upload_file }}"
+    user: "{{ file_repo_user }}"
+    password: "{{ file_repo_pass }}"
+    force_basic_auth: true
+    status_code: 201
+    headers:
+      Content-Type: text/csv

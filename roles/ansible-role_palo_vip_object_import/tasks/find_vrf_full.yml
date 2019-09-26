@@ -1,0 +1,11 @@
+---
+### This playbook is called to find the tenant/vrf for the current vip. We try to avoid this full search of the aci_subnet back in find_Vrf_quick, because it takes 10seconds per vip to search the full BD list.
+- name: Find VRF for VIP {{ thisVIP.vip_name }} / {{ thisVIP.vip_ip }}
+  set_fact:
+    vip_epg_quick_index: "{{ vip_epg_quick_index }} + [ {{ item }} ]"
+    vrf: "{{ item.vrf }}"
+    tenant: "{{ item.tenant }}"
+    subnet: "{{ item.subnet }}"
+  with_items:
+    - "{{ aci_subnet }}"
+  when: thisVIP.vip_ip == thisVIP.vip_ip | ipaddr(item.subnet)

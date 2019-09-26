@@ -1,0 +1,13 @@
+---
+- name: Parse address group name from XML query pulled in main.yml
+  set_fact:
+      address_group_name_var: "{{ address_group_name_output.matches[ item|int ].entry.name }}"
+
+## Assuming special objects are one word with no underscore_, and normal groups always have an underscore.
+- name: playbook for handling with "special" objects, like tenants.
+  include: special_address_groups.yml
+  when: not(address_group_name_var is search("_"))
+
+- name: playbook for handling with normal objects, like EPG, offices, Internet objects
+  include: normal_address_groups_outer_loop.yml
+  when: address_group_name_var is search("_")

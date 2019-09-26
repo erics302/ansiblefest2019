@@ -1,0 +1,60 @@
+---
+- name: Begin loop iteration for bridge domain "{{ item.fvSubnet.attributes.dn }}"
+  debug:
+    msg: "Begin loop for {{ item.fvSubnet.attributes.dn }}"
+
+# SECTION START: Branch logic between bd subnets and EPG subnets
+- name: If this is an BD SVI "{{ item.fvSubnet.attributes.dn }}"
+  set_fact:
+    tenant_name_regex: "/BD-.*$"
+  when: item.fvSubnet.attributes.dn is search('/BD-')
+
+- name: If this is an BD SVI "{{ item.fvSubnet.attributes.dn }}"
+  set_fact:
+    significant_name_regex: "^.*\\/BD-BD-"
+  when: item.fvSubnet.attributes.dn is search('/BD-')
+
+- name: If this is an EPG SVI "{{ item.fvSubnet.attributes.dn }}"
+  set_fact:
+    tenant_name_regex: "/ap-.*$"
+  when: item.fvSubnet.attributes.dn is search('/epg-')
+
+- name: If this is an EPG SVI "{{ item.fvSubnet.attributes.dn }}"
+  set_fact:
+    significant_name_regex: "^.*\\/ap.*\\/epg-EPG-"
+  when: item.fvSubnet.attributes.dn is search('/epg-')
+# SECTION END: Branch logic between bd subnets and EPG subnets
+
+- name: Parse out the tenant name
+  set_fact:
+    tenant_name: "{{ item.fvSubnet.attributes.dn | regex_replace('uni/tn-', '') | regex_replace(tenant_name_regex, '') }}"
+
+- name: Parse out the subnet
+  set_fact:
+    ip_subnet: "{{ item.fvSubnet.attributes.ip | ipaddr('network/prefix') }}"
+
+## Restore dash in name before placing in output file.
+- name: Parse out significant name step 1 "{{ item.fvSubnet.attributes.dn }}"
+  set_fact:
+    significant_name: "{{ item.fvSubnet.attributes.dn | regex_replace(significant_name_regex, '') | regex_replace('\\/subnet-.*$', '') }}"
+
+
+# SECTION START: Get VRF name
+- name: pull BD info for "{{ tenant_name }}"_"{{ significant_name }}"
+  set_fact:
+    aci_bd_raw: "{{ aci_bd_conf | to_json | from_json | json_query(\"current[?contains(fvBD.attributes.dn, '\" + significant_name + \"')] | [?contains(fvBD.attributes.dn, 'tn-\" + tenant_name + \"')]\") }}"
+
+- name: Grab vrf field which can be used later to parse tenant and name.
+  set_fact:
+    vrf_field: "{{ subnets | json_query('fvBD.children[*].fvRsCtx.attributes.tnFvCtxName') | first()  | regex_replace('VRF-', '') }}"
+  with_items: "{{ aci_bd_raw }}"
+  loop_control:
+    loop_var: subnets
+# SECTION END: Get VRF name
+
+- name: Add this BD to output file {{ tenant_name }} / {{ vrf_field }} / {{ significant_name }} / {{ ip_subnet }}"
+  lineinfile:
+    path: "{{ aci_bd_facts_file }}"
+    line: "{{ lookup('template', '{{ aci_bd_facts_line_template }}') }}"
+    insertafter: EOF
+  when: tenant_name not in excluded_tenants

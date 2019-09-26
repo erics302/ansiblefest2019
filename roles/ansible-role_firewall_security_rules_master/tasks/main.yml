@@ -1,0 +1,74 @@
+---
+- name: Courtesy message, role in "{{ run_mode }}" mode.
+  debug:
+    msg: "Courtesy message, role in {{ run_mode }} mode."
+    # retrieve mode to get CR from Cherwell and upload as a yml file to file_repo.
+    # close mode to close tickets.
+
+# SECTION START - Include encrypted var files
+- name: include cherwell-secrets.yml
+  include_vars: cherwell-secrets.yml
+  no_log: yes
+
+- name: file_repo - Get username and password var file
+  include_vars: file_repo_encrypted_vars.yml
+  no_log: yes
+# SECTION END - Include encrypted var files
+
+- name: API call to get Cherwell timelimited API token
+  uri:
+    url: "{{ cherwell_url_a }}token?auth_mode=Windows"
+    method: POST
+    body_format: form-urlencoded
+    body:
+      - [ grant_type, password ]
+      - [ client_id, "{{ cherwell_client_id }}"]
+      - [ username, "{{ cherwell_user }}"]
+      - [ password, "{{ cherwell_pass }}"]
+  no_log: yes
+  register: return_token_json
+
+- name: Parse Cherwell API token from return data
+  set_fact:
+    cherwell_api_token: "{{ return_token_json | json_query('json.access_token') }}"
+
+# Cherwell has a concept of business objects.  busobj all have IDs which are long strings like guids
+# The busobj types have ID too; so let's get the changerequest business object type dynmaically in case it ever changes.  (not sure if it would).
+- name: Get Cherwell businessObjectId of change request type of objects.
+  uri:
+    url: "{{ cherwell_url_a }}{{ cherwell_changerequest_bus_obj_sum_url }}"
+    method: GET
+    headers:
+      authorization: "bearer {{ cherwell_api_token }}"
+    body_format: json
+  register: cr_busobj_result
+
+- name: Parse out the exact string of the change request business object ID type
+  set_fact:
+    change_request_business_object_id: "{{ cr_busobj_result.json[0].busObId }}"
+
+- name: Get the template of cherwell changerequest fields
+  uri:
+    url: "{{ cherwell_url_a }}{{ cherwell_getbusinessobjecttemplate_url }}"
+    method: POST
+    headers:
+      authorization: "bearer {{ cherwell_api_token }}"
+    body_format: json
+    body: '{"busObId": "{{ change_request_business_object_id }}","includeAll": true,"includeRequired": true}'
+  register: fieldid_busobj_template_result
+
+- name: Parse out fieldID from template for cherwell changerequest status field
+  set_fact:
+    change_request_fieldid_status: "{{ item.fieldId }}"
+  with_items:
+    - "{{ fieldid_busobj_template_result.json.fields }}"
+  when: item.displayName == "Status"
+  # This particular field ID (Status) is needed in both retrieve and close mode, hence it's placement here in main.yml
+
+- name: Retrieve mode playbooks
+  include_tasks: retrieve_mode.yml
+  when: run_mode == "retrieve"
+
+- name: close mode playbooks
+  include_tasks: close_mode.yml
+  when: run_mode == "close"

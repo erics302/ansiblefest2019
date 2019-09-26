@@ -1,0 +1,16 @@
+---
+palo_device_group: "{{ device_group_name }}"
+address_group_xml_file: netinventory.xml
+address_name_xml_file: address_object_name.xml
+address_group_csv_file: netinventory.csv
+address_group_csv_file_archive: netinventory_archive.csv
+csv_upload_file: "{{ lookup('file', '{{ address_group_csv_file }}') }}"
+rest_url_a: /api/?type=op&cmd=<show><config><running><xpath>devices/entry[@name='localhost.localdomain']/device-group/entry[@name='
+rest_url_b: "']/address-group</xpath></running></config></show>&key="
+rest_url_c: "']/address</xpath></running></config></show>&key="
+file_repo_url: 'https://{{ URL }}/{{ address_group_csv_file }}'
+address_group_name_list: []
+firewall_to_query_for_userid: ['firewall1.contoso.local', 'firewall2.contoso.local']
+user_id_rest_url: "/api/?type=op&cmd=<show><user><group><list></list></group></user></show>&key="
+address_object_type_fqdn: 'fqdn'
+user_id_list_refined: []

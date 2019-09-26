@@ -1,0 +1,22 @@
+---
+- name: instantiate contract, subjects and subject_filters
+  include: aci_contract_instantiate.yml
+
+- name: Determine if the entire VRF is the source or destination
+  set_fact:
+    vrfwide: 'SOURCE'
+  when: source_tenant == source_epg
+
+- name: Determine if the entire VRF is the source or destination
+  set_fact:
+    vrfwide: 'DESTINATION'
+  when: dest_tenant == dest_epg
+
+# Conditional split here if entire vrf/tenant is source or destination
+- name: vrfwide_dest subloop
+  include: aci_contract_create_subloop_vrfwide_dest.yml
+  when: vrfwide == 'DESTINATION'
+
+- name: vrfwide_dest subloop
+  include: aci_contract_create_subloop_vrfwide_source.yml
+  when: vrfwide == 'SOURCE'

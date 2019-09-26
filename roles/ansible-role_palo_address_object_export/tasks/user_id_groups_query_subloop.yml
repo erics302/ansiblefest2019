@@ -1,0 +1,18 @@
+---
+- name: Query for user id group list from PANOS
+  uri:
+    url: "https://{{ item }}{{ user_id_rest_url }}{{ rest_api_key }}"
+    method: GET
+    validate_certs: no
+    return_content: yes
+  register: user_id_return_data
+
+- name: parse user-id from XML data
+  xml:
+    xmlstring: "{{ user_id_return_data.content }}"
+    xpath: //response/result
+    content: text
+  register: user_id_list_raw
+
+- name: Split user-id list from restapi xml into ansible-list
+  set_fact: user_id_list_refined="{{ user_id_list_raw.matches[0].result.split('\n') + user_id_list_refined }}"

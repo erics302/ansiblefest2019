@@ -1,0 +1,73 @@
+---
+- name: Courtesy message, Starting a new loop.yml iteration.
+  debug:
+    msg: "loop.yml for {{ thisVIP.vip_name }} / {{ thisVIP.vip_ip }}"
+
+- name: Initialize clean variables for this loop {{ thisVIP.vip_name }} / {{ thisVIP.vip_ip }}
+  set_fact:
+    vrf: ""
+    tenant: ""
+    subnet: ""
+    vip_name_var: ""
+    datacenter: ""
+    subnetname: ""
+    tenant_name_var: ""
+    address_object_name: ""
+    local_group_object_name: ""
+    global_group_object_name: ""
+    vip_epg_quick_index_temp: ""
+
+- name: Try to find_vrf_quick.yml for {{ thisVIP.vip_name }} / {{ thisVIP.vip_ip }}
+  include_tasks: find_vrf_quick.yml
+  when: vip_epg_quick_index | length > 0
+
+- name: Try to find_vrf_full.yml for {{ thisVIP.vip_name }} / {{ thisVIP.vip_ip }} if quick find did not return a result
+  include_tasks: find_vrf_full.yml
+  when: tenant == ''
+
+- name: Find Datacenter for VIP {{ thisVIP.vip_name }} / {{ thisVIP.vip_ip }}
+  set_fact:
+    datacenter: "{{ item.datacenter }}"
+  with_items:
+    - "{{ dc_supernets }}"
+  when: thisVIP.vip_ip == thisVIP.vip_ip | ipaddr(item.supernet)
+
+- name: Convert the . in FQDN to _ for name
+  set_fact:
+    vip_name_var: "{{ thisVIP.vip_name | regex_replace('\\.', '_') }}"
+
+- name: Convert the / and . in cidr notation to _ for name
+  set_fact:
+    subnetname: "{{ thisVIP.vip_ip | regex_replace('/', '_') | regex_replace('\\.', '_') }}"
+
+# SECTION START: Tenant name logic to handle multi vrf common
+- name: Set tenant variable if tenant != 'common'
+  set_fact:
+    tenant_name_var: "{{ tenant }}"
+  when: not(tenant == 'common')
+
+- name: Set tenant variable if tenant == 'common'
+  set_fact:
+    tenant_name_var: "{{ tenant }}{{ vrf }}"
+  when: (tenant == 'common')
+# SECTION END: Tenant name logic to handle multi vrf common
+
+# SECTION START: Create address and group object name vars and apply
+- name: set address object name var
+  set_fact:
+    address_object_name: "{{ '_'.join(('{{ datacenter }}','{{ tenant_name_var }}','VIP','{{ vip_name_var }}','{{ subnetname }}')) }}"
+
+- name: Truncate address object name var if more than 63 char
+  set_fact:
+    address_object_name: "{{ address_object_name[0:63] }}"
+  when: address_object_name | length > 63
+
+- name: Warning if tenant / vrf could not be found
+  debug:
+    msg: Could not find tenant/vrf/epg for {{ thisVIP.vip_name }} / {{ thisVIP.vip_ip }}
+  when: tenant == ''
+
+- name: Run subloop.yml for "{{ address_object_name }}" if it doesn't already exist.
+  include: subloop.yml
+  when: not(address_object_name in address_object_already_created) and not(tenant == '')
+# SECTION END: Create address and group object name vars and apply

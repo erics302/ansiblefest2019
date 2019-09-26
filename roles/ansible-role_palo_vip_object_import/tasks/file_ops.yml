@@ -1,0 +1,16 @@
+---
+# START DISABLE SECTION FOR TESTING
+- name: remove old import file if exists - {{ thisFile }}
+  file:
+    path: "./{{ thisFile }}"
+    state: absent
+
+- name: Get updated file from file_repo - {{ thisFile }}
+  get_url:
+    url: "{{ file_repo_url }}{{ thisFile }}"
+    dest: "./{{ thisFile }}"
+    mode: '666'
+# END DISABLE SECTION FOR TESTING
+
+- name: Import file facts as a var
+  include_vars: "./{{ thisFile }}"

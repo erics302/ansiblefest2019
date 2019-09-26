@@ -1,0 +1,11 @@
+---
+
+allow_duplicates: 'no'
+
+galaxy_info:
+  author: Eric Spencer
+  description: This role takes the firewall change from Cherwell as input, sanitizes and formats data for presentation to the platform specific roles that configures the firewall rules in the environment.
+  license: "license (Apache 2.0)"
+  min_ansible_version: 2.7.0
+
+  galaxy_tags: []

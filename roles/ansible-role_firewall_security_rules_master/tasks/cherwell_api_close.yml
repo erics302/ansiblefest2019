@@ -1,0 +1,8 @@
+---
+# the reason this is not at the end of tasks/main.yml is because of a fail module to end execution when there are no new CR.
+- name: Close Cherwell API
+  uri:
+    url: "{{ cherwell_url_a }}{{ cherwell_api_logout_url }}"
+    method: DELETE
+    headers:
+      authorization: "bearer {{ cherwell_api_token }}"

@@ -1,0 +1,22 @@
+---
+cherwell_server_name: "server.contoso.local"
+cherwell_url_a: 'http://{{ cherwell_server_name }}/CherwellAPI/'
+cherwell_url_get_token: "token?api_key="
+cherwell_api_logout_url: "api/V1/logout"
+cherwell_changerequest_bus_obj_sum_url: "api/V1/getbusinessobjectsummary/busobname/changerequest"
+cherwell_url_get_specific_cr_a: "api/V1/getbusinessobject/busobid/"
+cherwell_url_get_specific_cr_b: "/busobrecid/"
+cherwell_getbusinessobjecttemplate_url: "api/V1/getbusinessobjecttemplate"
+cherwell_getsearchresults_url: "api/V1/getsearchresults"
+cherwell_save_bus_ob_url: "api/V1/savebusinessobject"
+yml_file_of_cr_values: cherwell_fw_cr_export_lab.yml
+archive_yml_file_of_cr_values: cherwell_fw_cr_export.last.yml
+file_repo_url: 'https://{{ URL }}/{{ yml_file_of_cr_values }}'
+file_repo_upload_file: "{{ lookup('file', '{{ yml_file_of_cr_values }}') }}"
+# Variable used in the adhoc query to find CRs ready for implementation.
+cherwell_cr_type_value: "Firewall"
+cherwell_cr_status_value: "Review"
+# owned by variables used to assign CR ownership when closing out in cherwell.
+cherwell_owned_by_user: "{{ cherwell user name }}"
+cherwell_owned_by_team: "{{ cherwell team name }}"
+list_of_cr_closed: []

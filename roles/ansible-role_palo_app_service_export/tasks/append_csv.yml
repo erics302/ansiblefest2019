@@ -1,0 +1,10 @@
+---
+- name: Parse each app group name into a var for passing to j2
+  set_fact:
+      app_group_name_var: "{{ app_list.matches[ item|int ].entry.name }}"
+
+- name: Create CSV file of app groups
+  lineinfile:
+      path: "{{ app_group_csv_file }}"
+      line: "{{ lookup('template', 'csv_template_app_groups.j2') }}"
+      insertafter: EOF

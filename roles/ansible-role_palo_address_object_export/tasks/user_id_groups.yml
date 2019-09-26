@@ -1,0 +1,12 @@
+---
+- name: Loop through a firewall pair to pull out the user groups
+  include_tasks: user_id_groups_query_subloop.yml
+  with_items: "{{ firewall_to_query_for_userid }}"
+
+- name: Add user-id groups to csv file to export to cherwell.
+  lineinfile:
+    path: "{{ address_group_csv_file }}"
+    line: "{{ lookup('template', 'csv_template_userid.j2') }}"
+    insertafter: EOF
+  with_items: "{{ user_id_list_refined }}"
+  when: item is search('sec-ia-')

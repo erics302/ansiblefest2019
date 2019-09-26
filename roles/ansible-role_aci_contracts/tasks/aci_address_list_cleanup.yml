@@ -1,0 +1,34 @@
+---
+### This playbook loops through all the source and destinations provided in the CR.
+### Make new lists with only the source and destinations forming an intratenant pair.
+### ACI contracts are between intratenant (same tenant) source/dest pairs.
+### It also checks that tenant exists in ACI
+- name: source tenant check; does tenant "{{ item.0 }}" exist in ACI?
+  aci_tenant:
+    host: "{{ ansible_host }}"
+    username: "{{ ansible_user }}"
+    password: "{{ password }}"
+    validate_certs: no
+    state: query
+    tenant: "{{ item.0 | regex_replace('common.*','common') }}"
+  register: source_tenant_exists
+
+- name: dest tenant check; does tenant "{{ item.2 }}" exist in ACI?
+  aci_tenant:
+    host: "{{ ansible_host }}"
+    username: "{{ ansible_user }}"
+    password: "{{ password }}"
+    validate_certs: no
+    state: query
+    tenant: "{{ item.2 | regex_replace('common.*','common') }}"
+  register: dest_tenant_exists
+
+- name: Add to intratenant source address list for all ACI objects not in tenant-common
+  set_fact:
+    intratenant_source_address_list: "{{ intratenant_source_address_list }} + [ '{{ item.1 }}' ]"
+  when: ((item.0 == item.2) and not(item.1 == item.3) and not(source_tenant_exists.current == []) and not(item.1 is search("sec-ia-")))
+
+- name: Add to intratenant destination address list for all ACI objects not in tenant-common
+  set_fact:
+    intratenant_dest_address_list: "{{ intratenant_dest_address_list }} + [ '{{ item.3 }}' ]"
+  when: ((item.0 == item.2) and not(item.1 == item.3) and not(dest_tenant_exists.current == []) and not(item.3 is search("sec-ia-")))

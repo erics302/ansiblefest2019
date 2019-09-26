@@ -1,0 +1,70 @@
+---
+# SECTION_START: file operations
+- name: Archive CSV from last run
+  copy:
+    src: "{{ app_group_csv_file }}"
+    dest: "{{ app_group_csv_file_archive }}"
+  ignore_errors: yes
+
+- name: Delete CSV/xml from last run now that we made an archive copy
+  file:
+    path: "{{ item }}"
+    state: absent
+  ignore_errors: yes
+  with_items:
+    - "{{ app_group_csv_file }}"
+    - "{{ app_group_xml_file }}"
+
+- name: Create new csv and xml files
+  file:
+    path: "{{ item }}"
+    state: touch
+    mode: '0666'
+  with_items:
+    - "{{ app_group_csv_file }}"
+    - "{{ app_group_xml_file }}"
+# SECTION_END: file operations
+
+- name: include rest api key var file
+  include_vars: api_key_encrypted.yml
+  no_log: yes
+
+- name: create rest api URL variable
+  set_fact:
+    panos_rest_url: "{{ ''.join(('https://', '{{ ip_address }}', '{{ rest_url_a }}', '{{ palo_device_group }}', '{{ rest_url_b }}', '{{ rest_api_key }}')) }}"
+
+- name: Query for app group list from PANOS
+  get_url:
+    url: "{{ panos_rest_url }}"
+    validate_certs: no
+    dest: "{{ app_group_xml_file }}"
+    force: yes
+
+- name: Parse PANOS app group object name
+  xml:
+    path: "{{ app_group_xml_file }}"
+    xpath: //entry
+    content: attribute
+    attribute: name
+  register: app_list
+
+- name: append_csv.yml for each app group name
+  include: append_csv.yml
+  with_sequence: start=0 end={{ app_list.count - 1 }}
+
+- name: file_repo - Get username and password var file
+  include_vars: file_repo_encrypted_vars.yml
+  no_log: yes
+
+- name: upload export file to file_repo
+  uri:
+    url: "{{ file_repo_url }}"
+    method: PUT
+    body_format: raw
+    body: "{{ csv_upload_file }}"
+    user: "{{ file_repo_user }}"
+    password: "{{ file_repo_pass }}"
+    force_basic_auth: true
+    status_code: 201
+    headers:
+      Content-Type: text/csv

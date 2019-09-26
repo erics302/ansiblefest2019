@@ -1,0 +1,10 @@
+aci_bd_facts_yml_file: aci_bd_facts_file.yml
+file_repo_url: "https://{{ URL }}/{{ aci_bd_facts_yml_file }}"
+palo_device_group: "{{ DEVICE_GROUP_NAME }}"
+addrformat: ip-netmask
+rest_url_show_address_groups_a: "/api/?type=op&cmd=<show><config><running><xpath>devices/entry[@name='localhost.localdomain']/device-group/entry[@name='"
+rest_url_show_address_groups_b: "']/address-group</xpath></running></config></show>&key="
+rest_url_show_tag_a: "/api/?type=op&cmd=<show><config><running><xpath>devices/entry[@name='localhost.localdomain']/device-group/entry[@name='"
+rest_url_show_tag_b: "']/tag</xpath></running></config></show>&key="
+rest_url_show_address_a: "/api/?type=op&cmd=<show><config><running><xpath>devices/entry[@name='localhost.localdomain']/device-group/entry[@name='"
+rest_url_show_address_b: "']/address</xpath></running></config></show>&key="

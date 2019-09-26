@@ -1,0 +1,7 @@
+---
+f5_facts_file: f5_facts_file.yml
+f5_raw_list: []
+list1: []
+file_repo_url: 'https://{{ URL }}/{{ f5_facts_file }}'
+file_repo_upload_file: "{{ lookup('file', '{{ f5_facts_file }}') }}"
+inclusion_pattern: "vip_name: '.+(((\\.CONTOSO\\.LOCAL)|(\\.COM))'\n)"

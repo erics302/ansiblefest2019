@@ -1,0 +1,79 @@
+---
+# SECTION START: One time file operations
+- name: Delete file from last run now if it exists
+  file:
+    path: "{{ aci_bd_facts_file }}"
+    state: absent
+  ignore_errors: yes
+  delegate_to: localhost
+  run_once: true
+
+- name: Create new vars file
+  file:
+    path: "{{ aci_bd_facts_file }}"
+    state: touch
+    mode: 0666
+  delegate_to: localhost
+  run_once: true
+
+- name: Add one time headers to var file "{{ aci_bd_facts_file }}"
+  lineinfile:
+    path: "{{ aci_bd_facts_file }}"
+    line: "{{ lookup('template', '{{ aci_bd_facts_header_template }}') }}"
+    insertafter: EOF
+  delegate_to: localhost
+  run_once: true
+# SECTION END: One time file operations
+
+# SECTION START - Include encrypted var files
+- name: Get encrypted password file for lab aci
+  include_vars: aci_lab.yml
+  no_log: yes
+  when: inventory_hostname in groups.aci_lab
+
+- name: Get encrypted password file for prod aci
+  include_vars: aci_prod.yml
+  no_log: yes
+  when: inventory_hostname in groups.aci_prod
+
+- name: file_repo - Get username and password var file
+  include_vars: file_repo_encrypted_vars.yml
+  no_log: yes
+# SECTION END - Include encrypted var files
+
+# SECTION START - One time pull configs from ACI
+- name: Pull list of all BD
+  aci_bd:
+    host: "{{ ansible_host }}"
+    username: "{{ ansible_user }}"
+    password: "{{ password }}"
+    validate_certs: no
+    state: query
+  register: aci_bd_conf
+
+- name: Pull list of all aci subnets
+  aci_bd_subnet:
+    host: "{{ ansible_host }}"
+    username: "{{ ansible_user }}"
+    password: "{{ password }}"
+    validate_certs: no
+    state: query
+  register: aci_subnet_conf
+# SECTION END - One time pull configs from ACI
+
+- name: Loop through each fvSubnet retrieved via the aci_bd_subnet call.  This includes EPG and BD svi.
+  include: loop.yml
+  with_items: "{{ aci_subnet_conf.current }}"
+
+- name: upload export file to file_repo
+  uri:
+    url: "{{ file_repo_url }}"
+    method: PUT
+    body_format: raw
+    body: "{{ file_repo_upload_file }}"
+    user: "{{ file_repo_user }}"
+    password: "{{ file_repo_pass }}"
+    force_basic_auth: true
+    status_code: 201
+    headers:
+      Content-Type: text/csv

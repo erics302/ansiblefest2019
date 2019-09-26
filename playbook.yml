@@ -1,0 +1,31 @@
+---
+- hosts: localhost
+  gather_facts: no
+  roles:
+    - paloaltonetworks.paloaltonetworks
+
+- hosts: localhost
+  gather_facts: no
+  roles:
+    - ansible-role_firewall_security_rules_master
+  vars:
+    run_mode: "retrieve"
+
+- hosts: "{{ selected_panos_hosts }}"
+  connection: local
+  gather_facts: no
+  roles:
+    - ansible-role_palo_security_rules
+
+- hosts: "{{ selected_aci_hosts }}"
+  connection: local
+  gather_facts: no
+  roles:
+    - ansible-role_aci_contracts
+
+- hosts: localhost
+  gather_facts: yes
+  roles:
+    - ansible-role_firewall_security_rules_master
+  vars:
+    run_mode: "close"

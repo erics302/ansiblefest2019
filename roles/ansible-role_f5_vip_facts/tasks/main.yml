@@ -1,0 +1,84 @@
+---
+- name: include f5_secrets
+  include_vars: f5_secrets.yml
+  no_log: yes
+
+- name: file_repo - Get username and password var file
+  include_vars: file_repo_encrypted_vars.yml
+  no_log: yes
+
+- name: Grab VIP facts from F5 LTM
+  bigip_device_facts:
+    gather_subset:
+      - virtual-servers
+    provider:
+      server: "{{ ip_address }}"
+      user: "{{ username }}"
+      password: "{{ password }}"
+      validate_certs: no
+  delegate_to: localhost
+  register: f5results
+
+- name: parse out fullpath of each VIP
+  set_fact:
+    f5_full_path_list: "{{ f5results | json_query('virtual_servers[*].full_path') }}"
+
+- name: parse out vip address of each VIP
+  set_fact:
+    f5_address_list: "{{ f5results | json_query('virtual_servers[*].destination_address') }}"
+
+- name: Delete CSV from last run now that we made an archive copy
+  file:
+    path: "{{ f5_facts_file }}"
+    state: absent
+  ignore_errors: yes
+
+- name: Create new CSV file
+  file:
+    path: "{{ f5_facts_file }}"
+    state: touch
+    mode: 0666
+
+- name: Add header to CSV file
+  lineinfile:
+    path: "{{ f5_facts_file }}"
+    line: "{{ lookup('template', 'f5_vip_list_header.j2') }}"
+  delegate_to: localhost
+  run_once: true
+
+- name: Create raw list
+  set_fact:
+    f5_raw_list: "{{ f5_raw_list + [lookup('template', 'f5_vip_list.j2')] }}"
+  with_together:
+    - "{{ f5_full_path_list }}"
+    - "{{ f5_address_list }}"
+
+- name: Create a list of VIPs not following the standard naming convention
+  set_fact:
+    f5_bad_name_list: "{{ f5_raw_list | reject('search', inclusion_pattern ) | list }}"
+
+- name: Create a list of good VIPs
+  set_fact:
+    f5_filtered_list: "{{ f5_raw_list | difference(f5_bad_name_list) }}"
+
+- name: Add Clean VIP list to CSV file
+  lineinfile:
+    path: "{{ f5_facts_file }}"
+    line: "{{ item }}"
+    insertafter: EOF
+  with_list:
+    "{{ f5_filtered_list | unique }}"
+
+- name: upload export file to file_repo
+  uri:
+    url: "{{ file_repo_url }}"
+    method: PUT
+    body_format: raw
+    body: "{{ file_repo_upload_file }}"
+    user: "{{ file_repo_user }}"
+    password: "{{ file_repo_pass }}"
+    force_basic_auth: true
+    status_code: 201
+    headers:
+      Content-Type: text/csv
+  run_once: True

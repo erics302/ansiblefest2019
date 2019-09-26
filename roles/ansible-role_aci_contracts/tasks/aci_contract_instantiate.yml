@@ -1,0 +1,51 @@
+---
+- name: create contract name var if not a vip source.
+  set_fact:
+    contract_name: "{{ ''.join(('{{ dest_epg }}', '-P_', '{{ source_epg }}', '-C')) }}"
+  when: not(source_epg is search("VIP")) or not(dest_epg is search("VIP"))
+
+- name: create contract name var if a vip is source or dest.
+  set_fact:
+    contract_name: "{{ return_val_epg | regex_replace('EPG-','') }}-P_{{ source_epg_aci_string | regex_replace('EPG-','') }}-C"
+  when: (source_epg is search("VIP")) or (dest_epg is search("VIP"))
+  # the two set_fact: contract_name plays probably could have been the same pattern without need of conditionals, but I figured this was safer in case their is a nonstandard named EPG in there
+
+- name: Create contract "{{ contract_name }}"
+  aci_contract:
+    host: "{{ ansible_host }}"
+    username: "{{ ansible_user }}"
+    password: "{{ password }}"
+    validate_certs: no
+    state: present
+    tenant: "{{ source_item.split('_')[0] | regex_replace('(common).*','\\1') }}"
+    contract: "{{ contract_name }}"
+    description: "{{ cr_line.cr_tag_name}} {{ cr_line.desc | truncate(116) }}"
+    scope: context
+
+- name: Create contract subj for "{{ contract_name }}"
+  aci_contract_subject:
+    host: "{{ ansible_host }}"
+    username: "{{ ansible_user }}"
+    password: "{{ password }}"
+    validate_certs: no
+    state: present
+    tenant: "{{ source_item.split('_')[0] | regex_replace('(common).*','\\1') }}"
+    contract: "{{ contract_name }}"
+    description: "created by ansible"
+    subject: "Contract-Sub"
+
+- name: loop through filters to attach on contract "{{ contract_name }}"
+  aci_contract_subject_to_filter:
+    host: "{{ ansible_host }}"
+    username: "{{ ansible_user }}"
+    password: "{{ password }}"
+    validate_certs: no
+    state: present
+    tenant: "{{ source_item.split('_')[0] | regex_replace('(common).*','\\1') }}"
+    contract: "{{ contract_name }}"
+    subject: "Contract-Sub"
+    filter: "{{ item }}"
+  with_items:
+    - "{{ cr_line.aci_filter_name }}"
+    - 'icmp'
+  when: (not(item == ""))

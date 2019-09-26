@@ -1,0 +1,81 @@
+---
+### This playbook takes the input of an TENANT_EPG and returns two values, ANP name and EPG name.
+### input_var: epg_name   = an EPG name in the format TENANT_EPG.  Case sensitive, example PROD_SQL
+### output vars: return_val_epg and return_val_ap
+
+### Known issue:
+### IF there is two or more EPG of the same name in different ANP, this playbook could result in a contract being placed on the incorrect EPG.
+
+- name: Instantiate clean return_val variables for this execution.
+  set_fact:
+    return_val_epg: ''
+    return_val_ap: ''
+
+# SECTION START: Pull a list of EPG from the applicable tenant and format.  We will use this list to find the exact name of the EPG/verify it exists
+## todo: tenant is not a var
+- name: query list of EPG for tenant "{{ tenant }}" from ACI
+  aci_epg:
+    host: "{{ ansible_host }}"
+    username: "{{ ansible_user }}"
+    password: "{{ password }}"
+    validate_certs: no
+    state: query
+    tenant: "{{ epg_name.split('_')[0] | regex_replace('(common).*','\\1') }}"
+  register: epg_list_json
+
+# Parse out the EPG name field from the EPG query.
+- name: Parse all EPG names from query list
+  set_fact:
+    epg_list_yml: "{{ epg_list_json | json_query('current[0].fvTenant.children[*].fvAp.children[*].fvAEPg.attributes.name') }}"
+
+# The EPG name field list is formed as a list of lists from json.  (grouped by ANP).  Flatten to a single basic list.
+- name: Flatten epg_list_yml
+  set_fact:
+    epg_list_flat: "{{ epg_list_yml|flatten() }}"
+
+# SECTION END: Pull a list of EPG from the applicable tenant and format.  We will use this list to find the exact name of the EPG/verify it exists
+
+# Now take our flat list, and find the exact EPG name, ie SQL exact epg name is 'EPG-SQL'  Also note from the EPG query we are doing this per tenant.
+- name: Find our exact EPG name {{ epg_name }} if not a VIP.
+  # This returns nothing if the epg_name is a VIP.  Next play will handle that.
+  set_fact:
+    return_val_epg: "{{ item }}"
+  when: item | lower() is search("epg-" + epg_name.split('_')[1] | lower())
+  with_list: "{{ epg_list_flat }}"
+
+- name: VIP subloop if {{ epg_name }} is a VIP.
+  include: ap_epg_query_vip_subloop.yml
+  when: (return_val_epg =='') and (epg_name is search("VIP_"))
+
+- name: Fail out if EPG cannot be found
+  fail:
+    msg: "Cannot find EPG {{ epg_name }} in ACI fabric {{ inventory_hostname }} for {{ cr_line.cr_tag_name}}.  Ending execution"
+  when: return_val_epg == ''
+
+# Now that we have our exact EPG name, query ACI again so we can find the ANP name.
+- name: Query the epg "{{ return_val_epg }}" so we can find the AP name.
+  aci_epg:
+    host: "{{ ansible_host }}"
+    username: "{{ ansible_user }}"
+    password: "{{ password }}"
+    validate_certs: no
+    state: query
+    tenant: "{{ epg_name.split('_')[0] | regex_replace('(common).*','\\1') }}"
+    epg: "{{ return_val_epg }}"
+  register: ap_list_json
+
+- name: Parse ap name from json query
+  set_fact:
+    ap_list_yml: "{{ ap_list_json | json_query('current[0].fvTenant.children[*].fvAp.attributes.name') }}"
+
+# Json query returns a listvar type even when the response in one item.
+- name: Convert apname from list to string
+  set_fact:
+    return_val_ap: "{{ item }}"
+  with_items:
+    - "{{ ap_list_yml }}"
+
+- name: Fail out if ANP cannot be found
+  fail:
+    msg: "Cannot find AP for {{ epg_name }} in ACI fabric {{ inventory_hostname }} for {{ cr_line.cr_tag_name}}.  Ending execution"
+  when: return_val_ap == ''

@@ -1,0 +1,14 @@
+---
+
+allow_duplicates: 'no'
+
+galaxy_info:
+  author: Eric Spencer
+  description: Creates a list of subnets configured on EPG and BD in ACI, uploads to file_repo to be consumed by other roles.
+  license: "license (Apache 2.0)"
+  min_ansible_version: 2.7.0
+
+
+
+  galaxy_tags: []
+

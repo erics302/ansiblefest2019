@@ -1,0 +1,84 @@
+---
+- name: include rest api key var file
+  include_vars: api_key_encrypted.yml
+  no_log: yes
+
+- name: Archive CSV from last run
+  copy:
+    src: "{{ address_group_csv_file }}"
+    dest: "{{ address_group_csv_file_archive }}"
+  ignore_errors: yes
+
+- name: Delete CSV/xml from last run now that we made an archive copy
+  file:
+    path: "{{ item }}"
+    state: absent
+  ignore_errors: yes
+  with_items:
+    - "{{ address_group_csv_file }}"
+    - "{{ address_group_xml_file }}"
+    - "{{ address_name_xml_file }}"
+
+- name: Create new csv and xml files
+  file:
+    path: "{{ item }}"
+    state: touch
+    mode: '0666'
+  with_items:
+    - "{{ address_group_csv_file }}"
+    - "{{ address_group_xml_file }}"
+    - "{{ address_name_xml_file }}"
+
+- name: create rest api URL variable for show running config address objects
+  set_fact:
+    panos_rest_url_address_object_config: "{{ ''.join(('https://', '{{ ip_address }}', '{{ rest_url_a }}', '{{ palo_device_group }}', '{{ rest_url_c }}', '{{ rest_api_key }}')) }}"
+
+- name: Query for address object list from PANOS
+  get_url:
+    url: "{{ panos_rest_url_address_object_config }}"
+    validate_certs: no
+    dest: "{{ address_name_xml_file }}"
+    force: yes
+
+- name: create rest api URL variable for show running config address groups
+  set_fact:
+    panos_rest_url_address_group_config: "{{ ''.join(('https://', '{{ ip_address }}', '{{ rest_url_a }}', '{{ palo_device_group }}', '{{ rest_url_b }}', '{{ rest_api_key }}')) }}"
+
+- name: Query for address group list from PANOS
+  get_url:
+    url: "{{ panos_rest_url_address_group_config }}"
+    validate_certs: no
+    dest: "{{ address_group_xml_file }}"
+    force: yes
+
+- name: Parse PANOS address group object name
+  xml:
+    path: "{{ address_group_xml_file }}"
+    xpath: //tag[member="cherwell_do_export"]/parent::entry
+    content: attribute
+    attribute: name
+  register: address_group_name_output
+
+- name: Run through playbooks for parsing for each address group and adding to CSV upload file.
+  include: address_group_loop.yml
+  with_sequence: start=0 end={{ address_group_name_output.count - 1 }}
+
+- name: Get the user-id groups and add to csv file
+  include_tasks: user_id_groups.yml
+
+- name: file_repo - Get username and password var file
+  include_vars: file_repo_encrypted_vars.yml
+  no_log: yes
+
+- name: upload export file to file_repo
+  uri:
+    url: "{{ file_repo_url }}"
+    method: PUT
+    body_format: raw
+    body: "{{ csv_upload_file }}"
+    user: "{{ file_repo_user }}"
+    password: "{{ file_repo_pass }}"
+    force_basic_auth: true
+    status_code: 201
+    headers:
+      Content-Type: text/csv

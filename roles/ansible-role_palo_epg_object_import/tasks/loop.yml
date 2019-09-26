@@ -1,0 +1,68 @@
+---
+- name: Courtesy message, Starting a new loop.yml iteration for "{{ outer_bd.tenant }}" / "{{ outer_bd.vrf }}" / "{{ outer_bd.bd_name }}" / "{{ outer_bd.subnet }}"
+  debug:
+    msg: "loop.yml for {{ outer_bd.tenant }} / {{ outer_bd.vrf }} / {{ outer_bd.bd_name }} / {{ outer_bd.subnet }}"
+
+- name: Convert the / and . in cidr notation to _ for name.
+  set_fact:
+    subnetname: "{{ outer_bd.subnet | regex_replace('/', '_') | regex_replace('\\.', '_') }}"
+
+#SECTION START: Tenant name logic to handle multi vrf common
+- name: Set tenant variable if tenant != 'common'
+  set_fact:
+    tenant_name_var: "{{ outer_bd.tenant }}"
+  when: not(outer_bd.tenant == 'common')
+
+- name: Set tenant variable if tenant == 'common'
+  set_fact:
+    tenant_name_var: "{{ outer_bd.tenant }}{{ outer_bd.vrf }}"
+  when: (outer_bd.tenant == 'common')
+#SECTION END: Tenant name logic to handle multi vrf common
+
+#SECTION START: Create address and group object name vars
+- name: set address object name var
+  set_fact:
+    address_object_name: "{{ '_'.join(('{{ tenant_name_var }}','{{ outer_bd.bd_name }}','{{ subnetname }}')) }}"
+
+- name: set global address group object var
+  set_fact:
+    global_group_object_name: "{{ '_'.join(('{{ tenant_name_var }}','{{ outer_bd.bd_name }}')) }}"
+#SECTION END: Create address and group object name vars
+
+- name: include tags_create.yml
+  include: tags_create.yml
+  with_items:
+    - "{{ global_group_object_name }}"
+    - "{{ tenant_name_var }}"
+  when: not(item in tags_already_created)
+
+- name: Create address object for "{{ address_object_name }}" if it does not exist
+  panos_address_object:
+    ip_address: "{{ ip_address }}"
+    api_key: "{{ api_string }}"
+    device_group: "{{ palo_device_group }}"
+    state: present
+    name: "{{ address_object_name }}"
+    value: "{{ outer_bd.subnet }}"
+    address_type: "{{ addrformat }}"
+    description: "Imported from ACI to PANOS via Ansible"
+    tag: ['{{ tenant_name_var }}', '{{ global_group_object_name }}']
+    commit: false
+  when: not(address_object_name in address_object_already_created)
+
+- name: create group "{{ global_group_object_name }}" if it does not exist
+  panos_address_group:
+    ip_address: "{{ ip_address }}"
+    api_key: "{{ api_string }}"
+    device_group: "{{ palo_device_group }}"
+    name: "{{ global_group_object_name }}"
+    dynamic_value: "{{ global_group_object_name }}"
+    tag: 'cherwell_do_export'
+    state: present
+    commit: False
+  when: not(global_group_object_name in addr_groups_already_created)
+
+- name: Add "{{ global_group_object_name }}" to list addr_groups_already_created if it's not there already
+  set_fact:
+    addr_groups_already_created: "{{ addr_groups_already_created }} + [ '{{ global_group_object_name }}' ]"
+  when: not(global_group_object_name in addr_groups_already_created)

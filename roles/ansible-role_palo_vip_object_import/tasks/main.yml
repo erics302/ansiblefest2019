@@ -1,0 +1,106 @@
+---
+# SECTION START: One time file operations
+- name: File Operations for clean start
+  include: file_ops.yml
+  loop: "{{ download_list_from_file_repo }}"
+  loop_control:
+    loop_var: thisFile
+# SECTION END: One time file operations
+
+# SECTION START: One time variable files
+- name: get palo secrets
+  include_vars: panos-secrets.yml
+  no_log: yes
+  ignore_errors: yes
+# SECTION END: One time variable files
+
+# SECTION_START: Retrieve list of address-groups already configured on PANOS.  This list is used to skip configuration of existing objects
+- name: Create URL to rest url
+  set_fact:
+    rest_url_address_groups: "{{ ''.join(('https://', '{{ ip_address }}', '{{ rest_url_show_address_groups_a }}', '{{ palo_device_group }}', '{{ rest_url_show_address_groups_b }}', '{{ api_string }}')) }}"
+
+- name: Query for list of existing address group in PANOS
+  uri:
+    url: "{{ rest_url_address_groups }}"
+    method: GET
+    validate_certs: no
+    return_content: yes
+  register: return_data_address_groups
+
+- name: parse address groups from XML data
+  xml:
+    xmlstring: "{{ return_data_address_groups.content }}"
+    xpath: //address-group/entry
+    content: attribute
+    attribute: name
+  register: return_data_address_groups_semi_parsed
+
+- name: Now pull out a ansible list of just address-group name values.
+  set_fact:
+    addr_groups_already_created: "{{ return_data_address_groups_semi_parsed | json_query ('matches[*].*.name') | flatten() }}"
+# SECTION_END: Retrieve list of address-groups already configured on PANOS.  This list is used to skip configuration of existing objects
+
+# SECTION_START: Retrieve list of tags already configured on PANOS.  This list is used to skip configuration of existing objects
+- name: Create URL to rest url
+  set_fact:
+    rest_url_tag: "{{ ''.join(('https://', '{{ ip_address }}', '{{ rest_url_show_tag_a }}', '{{ palo_device_group }}', '{{ rest_url_show_tag_b }}', '{{ api_string }}')) }}"
+
+- name: Query for list of tag objects already in PANOS
+  uri:
+    url: "{{ rest_url_tag }}"
+    method: GET
+    validate_certs: no
+    return_content: yes
+  register: return_data_tag
+
+- name: parse tag object names from XML data
+  xml:
+    xmlstring: "{{ return_data_tag.content }}"
+    xpath: //tag/entry
+    content: attribute
+    attribute: name
+  register: tag_already_configured_in_panos
+  # failed_when: not("'Xpath //address-group/entry does not reference a node!' in tag_already_configured_in_panos.stderr")
+
+- name: parse names
+  set_fact:
+    tags_already_created: "{{ tag_already_configured_in_panos | json_query ('matches[*].*.name') | flatten() }}"
+# SECTION_END: Retrieve list of tags already configured on PANOS.  This list is used to skip configuration of existing objects
+
+# SECTION_START: Retrieve list of address objects already configured on PANOS.  This list is used to skip configuration of existing objects
+- name: Create URL to rest url
+  set_fact:
+    rest_url_address: "{{ ''.join(('https://', '{{ ip_address }}', '{{ rest_url_show_address_a }}', '{{ palo_device_group }}', '{{ rest_url_show_address_b }}', '{{ api_string }}')) }}"
+
+- name: Query for list of address objects already in PANOS
+  uri:
+    url: "{{ rest_url_address }}"
+    method: GET
+    validate_certs: no
+    return_content: yes
+  register: return_data_address
+
+- name: parse address objects from XML data
+  xml:
+    xmlstring: "{{ return_data_address.content }}"
+    xpath: //address/entry
+    content: attribute
+    attribute: name
+  register: address_already_configured_in_panos
+
+- name: parse address object names into ansible list variable
+  set_fact:
+    address_object_already_created: "{{ address_already_configured_in_panos | json_query ('matches[*].*.name') | flatten() }}"
+# SECTION_END: Retrieve list of address objects already configured on PANOS.  This list is used to skip configuration of existing objects
+
+- name: Run each F5 VIP through loop.yml
+  include: loop.yml
+  loop: "{{ f5_vips }}"
+  loop_control:
+    loop_var: thisVIP
+
+- name: commit candidate config on Panorama using api_key
+  panos_commit:
+    ip_address: "{{ ip_address }}"
+    api_key: "{{ api_string }}"
+    devicegroup: "{{ palo_device_group }}"

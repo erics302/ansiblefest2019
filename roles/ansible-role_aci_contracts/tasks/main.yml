@@ -1,0 +1,66 @@
+---
+# SECTION START: One time file operations
+- name: remove old import change request file if exists.
+  file:
+    path: "{{ yml_file_of_cr_values }}"
+    state: absent
+
+- name: Get Cherwell CR list from file_repo
+  get_url:
+    url: "{{ file_repo_url_cr }}"
+    dest: "./{{ yml_file_of_cr_values }}"
+    mode: '666'
+
+- name: remove old ACI BD list import file if exists.
+  file:
+    path: "{{ aci_bd_facts_yml_file }}"
+    state: absent
+
+# This file is used to find the EPG of a VIP, if a vip was selected in the fiirewall form in ap_epg_query_vip_subloop.yml.
+- name: Get ACI BD list from file_repo
+  get_url:
+    url: "{{ file_repo_url_bd }}"
+    dest: "./{{ aci_bd_facts_yml_file }}"
+    mode: '666'
+
+- name: remove old Palo address object export CSV file if exists.
+  file:
+    path: "{{ palo_csv_export_file }}"
+    state: absent
+
+# This file is used to find the EPG of a VIP, if a vip was selected in the fiirewall form in ap_epg_query_vip_subloop.yml.
+- name: Get new Palo export CSV.
+  get_url:
+    url: "{{ file_repo_url_palo_csv_export }}"
+    dest: "./{{ palo_csv_export_file }}"
+    mode: '666'
+
+# SECTION END: One time file operations
+
+# SECTION START: One time variable files
+- name: Import new rules as variables from yml file
+  include_vars: "{{ yml_file_of_cr_values }}"
+
+- block:
+    - name: Get encrypted password file for lab aci
+      include_vars: aci_lab.yml
+      no_log: yes
+      when: inventory_hostname in groups.aci_lab
+
+    - name: Get encrypted password file for prod aci
+      include_vars: aci_prod.yml
+      no_log: yes
+      when: inventory_hostname in groups.aci_prod
+
+    - name: Include ACI BD facts as a var
+      include_vars: "{{ aci_bd_facts_yml_file }}"
+    # SECTION END: One time variable files
+
+    # Loop through each line of the import, one fw rule CR per line on the import file.
+    - name: loop1.yml
+      include: loop1.yml
+      with_items: "{{ cr }}"
+      loop_control:
+        loop_var: cr_line
+
+  when: not(cr is none)

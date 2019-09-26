@@ -1,0 +1,12 @@
+---
+### Searching the list of ACI BD to find the one that has a subnet matching our vip is very time consuming.
+### The performance of that play takes ~10 seconds per vip against the full list of BD
+
+- name: Find VRF for VIP {{ thisVIP.vip_name }} / {{ thisVIP.vip_ip }} in quick index
+  set_fact:
+    vrf: "{{ item.vrf }}"
+    tenant: "{{ item.tenant }}"
+    subnet: "{{ item.subnet }}"
+  with_items:
+    - "{{ vip_epg_quick_index }}"
+  when: thisVIP.vip_ip == thisVIP.vip_ip | ipaddr(item.subnet)

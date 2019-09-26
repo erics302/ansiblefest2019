@@ -1,0 +1,10 @@
+---
+# SECTION START: Check if there are new CR to implement
+- name: Import new rules as variables from yml file
+  include_vars: "{{ yml_file_of_cr_values }}"
+
+- name: Exit role execution if there were no new CR downloaded from Cherwell.
+  meta: end_play
+  when: cr is none
+
+# SECTION END: Check if there are new CR to implement

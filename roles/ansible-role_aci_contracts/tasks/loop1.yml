@@ -1,0 +1,35 @@
+---
+- name: Courtesy message, starting ACI processing for ""{{ cr_line.cr_tag_name }}"
+  debug:
+    msg: "Starting aci_contracts/loop1.yml loop on {{ cr_line.cr_tag_name }}"
+
+# Make sure are working vars are clean if there was a previous loop iteration for a different CR.
+- name: Instantiate clean var for this loop iteration intertenant_source_address_list
+  set_fact:
+    intratenant_source_address_list: []
+    intratenant_dest_address_list: []
+
+- name: Loop through source/dest objects and remove inter-tenant pairs for "{{ cr_line.cr_tag_name }}"
+  include: aci_address_list_cleanup.yml
+  with_together:
+    - "{{ cr_line.src_tenant }}"
+    - "{{ cr_line.src_addr }}"
+    - "{{ cr_line.dst_tenant }}"
+    - "{{ cr_line.dst_addr }}"
+
+- name: include aci_filter_create.yml if there are inter-tenant rules in "{{ cr_line.cr_tag_name }}"
+  include: aci_filter_create.yml
+  with_together:
+    - "{{ cr_line.aci_filter_name }}"
+    - "{{ cr_line.service_protocol }}"
+    - "{{ cr_line.start_port }}"
+    - "{{ cr_line.end_port }}"
+  when: intratenant_source_address_list | length > 0 and intratenant_dest_address_list | length > 0
+
+- name: Loop through contract creation in "{{ cr_line.cr_tag_name }}" if there are intra-tenant rules requested.
+  include: loop2.yml
+  with_items:
+    - "{{ intratenant_source_address_list }}"
+  when: intratenant_source_address_list | length > 0 and intratenant_dest_address_list | length > 0
+  loop_control:
+    loop_var: source_item

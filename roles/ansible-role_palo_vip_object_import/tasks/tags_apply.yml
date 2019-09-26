@@ -1,0 +1,18 @@
+---
+### Use rest API with uri module since the panos_register_ip module does not support panorama.
+
+- name: Create URL var for dyanmic tags api call for device group "{{ palo_device_group }}"
+  set_fact:
+    panos_rest_api_url: "{{ ''.join(('https://', '{{ ip_address }}', '{{ rest_url_register_ip_device_group_a }}', '{{ palo_device_group }}', '{{ rest_url_register_ip_device_group_b }}', '{{ address_object_name }}', '{{ rest_url_register_ip_common_a }}', '{{ api_string }}', '{{ rest_url_register_ip_common_b }}', '{{ item }}', '{{ rest_url_register_ip_common_c }}')) }}"
+  when: (not(palo_device_group == "shared"))
+
+- name: Create URL var for dyanmic tags api call for device group "{{ palo_device_group }}"
+  set_fact:
+    panos_rest_api_url: "{{ ''.join(('https://', '{{ ip_address }}', '{{ rest_url_register_ip_shared_device_group }}', '{{ address_object_name }}', '{{ rest_url_register_ip_common_a }}', '{{ api_string }}', '{{ rest_url_register_ip_common_b }}', '{{ item }}', '{{ rest_url_register_ip_common_c }}')) }}"
+  when: (palo_device_group == "shared")
+
+- name: Apply dynamic tag "{{ item }}" to address object "{{ address_object_name }}"
+  uri:
+    url: "{{ panos_rest_api_url }}"
+    method: POST
+    validate_certs: false

@@ -1,0 +1,40 @@
+---
+### Create new filter if applicable.
+- name: create filter "{{ item.0 }}"
+  aci_filter:
+    host: "{{ ansible_host }}"
+    username: "{{ ansible_user }}"
+    password: "{{ password }}"
+    validate_certs: no
+    state: present
+    filter: "{{ item.0 }}"
+    tenant: "{{ aci_filter_tenant_name }}"
+    description: 'Created by ansible'
+  when: (not(item.0 == ''))
+
+- name: If end_port is not blank, set end_port item.3 because item.3 is also end port value
+  # Filter entry requires a port range, or only start port.
+  set_fact:
+    end_port_for_filter: "{{ item.3 }}"
+  when: not(item.3 == '')
+
+- name: If end_port is blank, set end_port equal to start port.  Then use that new endport var in filter entry.
+  set_fact:
+    end_port_for_filter: "{{ item.2 }}"
+  when: item.3 == ''
+
+- name: Add filter entry "{{ item.0 }}" to filter "{{ item.0 }}"
+  aci_filter_entry:
+    host: "{{ ansible_host }}"
+    username: "{{ ansible_user }}"
+    password: "{{ password }}"
+    validate_certs: no
+    state: present
+    tenant: "{{ aci_filter_tenant_name }}"
+    filter: "{{ item.0 }}"
+    entry: "{{ item.0 }}"
+    ether_type: ip
+    ip_protocol: "{{ item.1|lower() }}"
+    dst_port_start: "{{ item.2 }}"
+    dst_port_end: "{{ end_port_for_filter }}"
+  when: (not(item.0 == ''))

@@ -1,0 +1,16 @@
+{% if vrfwide == "DESTINATION" %}
+{% set j2_tenant_string = dest_tenant | regex_replace('common.*','common') %}
+{% set j2_contract_type_string = "vzRsAnyToProv" %}
+{% else %}
+{% if vrfwide == "SOURCE" %}
+{% set j2_tenant_string = source_tenant | regex_replace('common.*','common') %}
+{% set j2_contract_type_string = "vzRsAnyToCons" %}
+{% endif %}
+{% endif %}
+<fvTenant name="{{ j2_tenant_string }}">
+  <fvCtx name="{{ j2_vrf_string }}">
+    <vzAny>
+      <{{ j2_contract_type_string }} tnVzBrCPName="{{ contract_name }}"/>
+    </vzAny>
+  </fvCtx>
+</fvTenant>

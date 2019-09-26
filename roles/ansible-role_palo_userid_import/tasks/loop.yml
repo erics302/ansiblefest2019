@@ -1,0 +1,23 @@
+---
+- name: ldap query
+  ldap_search:
+    base: "{{ loop.0 }}"
+    filter: '(name=sec-ia-*)'
+    scope: onelevel
+    server_uri: "{{ loop.1 }}"
+    bind_dn: "{{ loop.2 }}"
+    bind_pw: "{{ loop.3 }}"
+  register: ldap_search_results
+
+- name: Parse out sec-ia groups from ladp query of "{{ loop.1 }}"
+  set_fact:
+    dn_list: "{{ ldap_search_results | json_query('results[*].dn') }}"
+
+- name: Post group-map include member to Panorama
+  uri:
+    url: "https://{{ ip_address }}/api/?type=config&action=set&xpath=/config/devices/entry[@name='localhost.localdomain']/template/entry[@name='{{ panos_template }}']/config/devices/entry[@name='localhost.localdomain']/vsys/entry[@name='vsys1']/group-mapping/entry[@name='{{ loop.4 }}']&element=<group-include-list><member>{{ item | urlencode }}</member></group-include-list>&key={{ api_string }}"
+    method: GET
+    force_basic_auth: true
+    status_code: 200
+    validate_certs: False
+  with_items: "{{ dn_list | lower() }}"

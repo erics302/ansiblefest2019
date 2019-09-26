@@ -1,0 +1,44 @@
+---
+- name: Initialize vars for normal address groups inner loop {{ address_objects.matches[ address_object_item|int ].entry.name }}
+  set_fact:
+    address_object_name_inner_loop_var: "{{ address_objects.matches[ address_object_item|int ].entry.name }}"
+    address_object_type: "ip-netmask"
+    ip_value: ''
+
+- name: Set address type variable to ip-range if applicable.
+  set_fact:
+    address_object_type: "ip-range"
+  when: address_object_name_inner_loop_var is search("_RANGE_")
+
+- name: Get IP.subnet associated with "{{ address_object_name_inner_loop_var }}" if it's a range or ip-netmast object.
+  xml:
+    path: "{{ address_name_xml_file }}"
+    xpath: /response/result/address/entry[@name='{{ address_object_name_inner_loop_var }}']/{{ address_object_type }}
+    content: text
+  register: ip_output
+  ignore_errors: yes
+
+# The real path is ip_output.matches[0].ip-netmask.  The dash is not an addressable var in Ansible and escaping doesnt work.
+- name: Parse IP values from the xml query above if it's an ip-netmask or ip-range value
+  set_fact:
+    ip_value: "{{ ip_output.matches[0] | regex_replace('.u.ip.*:.u.','') }}"
+  when: not ip_output.failed
+
+- name: Get FQDN if it's an FQDN object "{{ address_object_name_inner_loop_var }}"
+  xml:
+    path: "{{ address_name_xml_file }}"
+    xpath: /response/result/address/entry[@name='{{ address_object_name_inner_loop_var }}']/{{ address_object_type_fqdn }}
+    content: text
+  register: ip_output
+  when: ip_value == ''
+
+- name: Parse FQDN value from the xml query above if it's an FQDN object
+  set_fact:
+    ip_value: "{{ ip_output.matches[0] | regex_replace('.u.fqdn.*:.u.','') }}"
+  when: ip_value == ''
+
+- name: Add this object to CSV file
+  lineinfile:
+    path: "{{ address_group_csv_file }}"
+    line: "{{ lookup('template', 'csv_template_address_groups.j2') }}"
+    insertafter: EOF

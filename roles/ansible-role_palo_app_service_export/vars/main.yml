@@ -1,0 +1,9 @@
+---
+palo_device_group: "{{ device_group_name }}"
+app_group_xml_file: firewallprotocolports.xml
+app_group_csv_file: firewallprotocolports.csv
+app_group_csv_file_archive: firewallprotocolports_archive.csv
+csv_upload_file: "{{ lookup('file', '{{ app_group_csv_file }}') }}"
+rest_url_a: /api/?type=op&cmd=<show><config><running><xpath>devices/entry[@name='localhost.localdomain']/device-group/entry[@name='
+rest_url_b: "']/application-group</xpath></running></config></show>&key="
+file_repo_url: 'https://{{ URL }}/{{ app_group_csv_file }}'

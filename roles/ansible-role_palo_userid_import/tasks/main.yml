@@ -1,0 +1,19 @@
+---
+- name: Grab panos secrets
+  include_vars: panos-secrets.yml
+  no_log: yes
+
+- name: Grab bind secrets
+  include_vars: bind-secrets.yml
+  no_log: yes
+
+- name: Loop through for each AD forest
+  include: loop.yml
+  with_together:
+    - ["{{ base_OU }}"]
+    - ["{{ server1 }}"]
+    - ["{{ binddn }}"]
+    - ["{{ bindpwd }}"]
+    - ["{{ panos_group_mapping_name }}"]
+  loop_control:
+    loop_var: loop

@@ -1,0 +1,13 @@
+---
+# variables file for ansible-role_palo_security_rules
+palo_device_group_wan: "{{ DEVICE_GROUP_NAME }}"
+palo_device_group_internet: "{{ DEVICE_GROUP_NAME }}"
+palo_device_group_for_objects: "{{ DEVICE_GROUP_NAME }}"
+palo_rulebase: 'post-rulebase'
+palo_logging_profile: '{{ log_profile_name }}'
+security_profile_wan: '{{ security_profile_name }}'
+security_profile_inet_outbound: '{{ security_profile_name }}'
+security_profile_inet_inbound: '{{ security_profile_name }}'
+yml_file_of_cr_values: cherwell_fw_cr_export_lab.yml
+file_repo_url: 'https://{{ URL }}/{{ yml_file_of_cr_values }}'
+zone_list_source_userid: ["ZONE1", "ZONE2"]

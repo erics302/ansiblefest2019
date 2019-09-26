@@ -1,0 +1,11 @@
+---
+
+allow_duplicates: 'no'
+
+galaxy_info:
+  author: Dariusz Kaczanowski
+  description: Enumerate all the VIPs, subnets and VRFs for F5 vips.
+  license: "license (Apache 2.0)"
+  min_ansible_version: 2.5.2.0
+
+  galaxy_tags: []

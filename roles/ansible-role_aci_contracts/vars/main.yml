@@ -1,0 +1,9 @@
+---
+aci_filter_tenant_name: common
+yml_file_of_cr_values: cherwell_fw_cr_export_lab.yml
+file_repo_url_cr: 'https://{{ URL} }}/{{ yml_file_of_cr_values }}'
+# aci_bd_list_vars_file: aci_bd_list_vars.yml
+aci_bd_facts_yml_file: aci_bd_facts_file_master.yml
+file_repo_url_bd: "https://{{ URL} }}/{{ aci_bd_facts_yml_file }}"
+palo_csv_export_file: netinventory_develop.csv
+file_repo_url_palo_csv_export: "https://{{ URL} }}/{{ palo_csv_export_file }}"

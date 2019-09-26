@@ -1,0 +1,11 @@
+---
+
+allow_duplicates: 'no'
+
+galaxy_info:
+  author: Eric Spencer
+  description: Iterate over Addess Groups in Panorama and export as a CSV to file_repo.  That CSV is consumed by SQL/Cherwell for presentation in the firewall request form in Cherwell Change Management.
+  license: "license (Apache 2.0)"
+  min_ansible_version: 2.7.0
+
+  galaxy_tags: []

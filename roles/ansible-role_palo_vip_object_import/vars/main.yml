@@ -1,0 +1,24 @@
+---
+download_VIP_from_file_repo: f5_facts_file.yml
+download_BD_from_file_repo: aci_bd_facts_file.yml
+download_list_from_file_repo:
+  - "{{ download_VIP_from_file_repo }}"
+  - "{{ download_BD_from_file_repo }}"
+vip_epg_quick_index: []
+file_repo_url: "https://{{ URL }}"
+tags_already_created: []
+address_object_already_created: []
+addr_groups_already_created: []
+dc_supernets:
+  - supernet: '10.0.0.0/14'
+    datacenter: 'DC1'
+  - supernet: '10.4.0.0/14'
+    datacenter: 'DC2'
+palo_device_group: "{{ device_group_name }}"
+addrformat: ip-netmask
+rest_url_show_address_groups_a: "/api/?type=op&cmd=<show><config><running><xpath>devices/entry[@name='localhost.localdomain']/device-group/entry[@name='"
+rest_url_show_address_groups_b: "']/address-group</xpath></running></config></show>&key="
+rest_url_show_tag_a: "/api/?type=op&cmd=<show><config><running><xpath>devices/entry[@name='localhost.localdomain']/device-group/entry[@name='"
+rest_url_show_tag_b: "']/tag</xpath></running></config></show>&key="
+rest_url_show_address_a: "/api/?type=op&cmd=<show><config><running><xpath>devices/entry[@name='localhost.localdomain']/device-group/entry[@name='"
+rest_url_show_address_b: "']/address</xpath></running></config></show>&key="

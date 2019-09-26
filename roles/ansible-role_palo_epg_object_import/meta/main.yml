@@ -1,0 +1,13 @@
+---
+
+allow_duplicates: 'no'
+
+galaxy_info:
+  author: Eric Spencer
+  description: Imports all the subnets from bridge domain SVI from ACI.  Configures Address and group objects in Panorama per object naming standard.  The group objects are used for rules in the Palo firewalls.
+  license: "license (Apache 2.0)"
+  min_ansible_version: 2.7.0
+
+
+  galaxy_tags: []
+

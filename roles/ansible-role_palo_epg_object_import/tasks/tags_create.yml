@@ -1,0 +1,14 @@
+---
+### Establish tags for Data Center, Tenant, and EPG if those tags do not yet exist in PANOS
+- name: Create TAG for "{{ item }}" if it does not exist
+  panos_tag_object:
+    ip_address: "{{ ip_address }}"
+    api_key: "{{ api_string }}"
+    device_group: "{{ palo_device_group }}"
+    state: 'present'
+    commit: False
+    name: "{{ item }}"
+
+- name: Add tag "{{ item }}" to list of tags created on this playbook run
+  set_fact:
+    tags_already_created: "{{ tags_already_created }} + [ '{{ item }}' ]"

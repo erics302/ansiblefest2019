@@ -1,0 +1,23 @@
+---
+- name: Add standard port app-id "{{ item.0 }}" to list var containing applications for app-id on standard port
+  set_fact:
+    applications_appid_list: "{{ applications_appid_list }} + [ '{{ item.0 }}' ]"
+  when: ((not(item.0 == '')) and (item.1 == 'False') and (item.2 == 'application-default')) or (item.0 is search(item.2) and not(item.2 == ''))
+
+# app with inspect turned off; parsed in j2 template and by the time it reaches this playbook it looks like a service from the codes' perspective.
+- name: Add to service only "{{ item.2 }}" (non app-id) list (also adds a service if app-id was selected but inspect disable was checked.
+  set_fact:
+    service_only_list: "{{ service_only_list }} + [ '{{ item.2 }}' ]"
+  when: ((item.0 == '' and not(item.2 == '')) or (item.1 == 'True' and not(item.2 == '')))
+
+# SECTION APP ID on nonstandard ports
+- name: Add to list of app-id with nonstandard ports app "{{ item.0 }}" with service "{{ item.2 }}"
+  set_fact:
+    applications_appid_nonstandard_port_list: "{{ applications_appid_nonstandard_port_list }} + [ '{{ item.0 }}' ]"
+  when: not(item.0 == '') and (item.1 == 'False') and not(item.2 == 'application-default') and (not(item.0 is search(item.2)) and not(item.2 == ''))
+
+- name: Add service "{{ item.2 }}" to service list to associate with app-id with nonstandard ports
+  set_fact:
+    services_appid_nonstandard_port_list: "{{ services_appid_nonstandard_port_list }} + [ '{{ item.2 }}' ]"
+  when: not(item.0 == '') and (item.1 == 'False') and not(item.2 == 'application-default') and not(item.0 is search(item.2)) and not(item.2 == '')
+# END SECTION APP ID on nonstandard ports

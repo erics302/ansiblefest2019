@@ -1,0 +1,64 @@
+---
+### Run this loop from loop.yml if the address object name is not in address_objects_already_created  The idea is the duration of the role's execution.
+- name: set global address group object var
+  set_fact:
+    global_group_object_name: "{{ '_'.join(('{{ tenant_name_var }}','VIP','{{ vip_name_var }}')) }}"
+
+- name: Truncate global address group object var if more than 61 char
+  set_fact:
+    global_group_object_name: "{{ global_group_object_name[0:61] }}"
+  when: global_group_object_name | length > 63
+
+- name: include tags_create.yml
+  include: tags_create.yml
+  with_items:
+    - "{{ global_group_object_name }}"
+    - "{{ tenant_name_var }}"
+  when: not(item in tags_already_created)
+
+- name: Create address object for "{{ address_object_name }}" if it does not exist
+  panos_address_object:
+    ip_address: "{{ ip_address }}"
+    api_key: "{{ api_string }}"
+    device_group: "{{ palo_device_group }}"
+    state: present
+    name: "{{ address_object_name }}"
+    value: "{{ thisVIP.vip_ip }}"
+    address_type: "{{ addrformat }}"
+    description: "Imported from F5/NS to PANOS via Ansible"
+    tag: ['{{ tenant_name_var }}', '{{ datacenter }}', '{{ global_group_object_name }}', '{{ local_group_object_name }}']
+    commit: False
+    # don't need a when clause here, because we check   when: not(address_object_name in address_object_already_created) from loop.yml before calling this subloop.yml
+
+- name: create group "{{ local_group_object_name }}" if it does not exist
+  panos_address_group:
+    ip_address: "{{ ip_address }}"
+    api_key: "{{ api_string }}"
+    device_group: "{{ palo_device_group }}"
+    name: "{{ local_group_object_name }}"
+    dynamic_value: "{{ local_group_object_name }}"
+    state: present
+    commit: False
+  when: not(local_group_object_name in addr_groups_already_created)
+
+- name: Add "{{ local_group_object_name }}" to list addr_groups_already_created if it's not there already
+  set_fact:
+    addr_groups_already_created: "{{ addr_groups_already_created }} + [ '{{ local_group_object_name }}' ]"
+  when: not(local_group_object_name in addr_groups_already_created)
+
+- name: create group "{{ global_group_object_name }}" if it does not exist
+  panos_address_group:
+    ip_address: "{{ ip_address }}"
+    api_key: "{{ api_string }}"
+    device_group: "{{ palo_device_group }}"
+    name: "{{ global_group_object_name }}"
+    dynamic_value: "{{ global_group_object_name }}"
+    tag: 'cherwell_do_export'
+    state: present
+    commit: False
+  when: not(global_group_object_name in addr_groups_already_created)
+
+- name: Add "{{ global_group_object_name }}" to list addr_groups_already_created if it's not there already
+  set_fact:
+    addr_groups_already_created: "{{ addr_groups_already_created }} + [ '{{ global_group_object_name }}' ]"
+  when: not(global_group_object_name in addr_groups_already_created)

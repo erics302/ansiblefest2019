@@ -1,0 +1,11 @@
+---
+
+allow_duplicates: 'no'
+
+galaxy_info:
+  author: Eric Spencer
+  description: Enumerates all the PANOS applications groups and uploads them as a CSV format to file_repo.  Then the list is imported into the Cherwell DB for the firewall request form.
+  license: "license (Apache 2.0)"
+  min_ansible_version: 2.7.0
+
+  galaxy_tags: []

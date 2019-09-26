@@ -1,0 +1,6 @@
+#jinja2:lstrip_blocks: True
+{% set var1 = item.0 | regex_replace('^\\/','') | regex_replace('\\/',',') | regex_replace('-(\d+|ANY)-VIP','') %}
+{% set list1 = var1.split(',') %}
+    - tenant: '{{ list1[0] }}'
+      vip_name: '{{ list1[1] }}'
+      vip_ip: '{{ item.1 }}'

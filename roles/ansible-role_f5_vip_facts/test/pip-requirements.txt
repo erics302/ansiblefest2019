@@ -1,0 +1,7 @@
+cookiecutter==1.5.1
+molecule==2.12.1
+ansible==2.5.2.0
+python-vagrant==0.5.15
+xmltodict==0.11.0
+pywinrm==0.3.0
+testinfra==1.12.0

@@ -1,0 +1,26 @@
+---
+# This is kinda unnessary as the filter should equal the group name but to be safe grab it dynamically from PANOS.  Downside is longer playbook runtime.
+- name: get the dynamic filter name for "{{ address_group_name_var }}"
+  xml:
+    path: "{{ address_group_xml_file }}"
+    xpath: /response/result/address-group/entry[@name='{{ address_group_name_var }}']/dynamic/filter
+    content: text
+  register: address_group_dynamic_filter_var
+
+- name: Find the address object names tagged with "{{ address_group_dynamic_filter_var }}"
+  xml:
+    path: "{{ address_name_xml_file }}"
+    xpath: //tag[member='{{ address_group_name_var }}']/parent::entry
+    content: attribute
+    attribute: name
+  register: address_objects
+  ignore_errors: yes
+  # Ignore errors to handle address-groups that have no members.
+
+- name: Loop through each address object associated with tag "{{ address_group_dynamic_filter_var }}" and to find IP addresses that are children of group "{{ address_group_name_var }}"
+  include: normal_address_groups_inner_loop.yml
+  with_sequence: start=0 end={{ address_objects.count - 1 }}
+  loop_control:
+    loop_var: address_object_item
+  ignore_errors: yes
+  # Ignore errors to handle address-groups that have no members.

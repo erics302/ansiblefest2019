@@ -1,0 +1,131 @@
+---
+- name: Set fact actual_start_date_and_time (as five minutes before now) and actual_end_date_and_time variables.
+  set_fact:
+    actual_start_date_and_time: "{{ '%Y-%m-%d %H:%M:%S' | strftime( ( ansible_date_time.epoch | int ) - ( 300 )  ) }}"
+    actual_end_date_and_time: "{{ '%Y-%m-%d %H:%M:%S' | strftime( ( ansible_date_time.epoch | int ) ) }}"
+    # Passing the real actual start time between roles would be a real pita and the only reason we need this value is to close cherwell CR.
+
+# SECTION START: One time file operations
+- name: remove old import change request file if exists.
+  file:
+    path: "{{ yml_file_of_cr_values }}"
+    state: absent
+
+- name: Get Cherwell CR list from file_repo
+  get_url:
+    url: "{{ file_repo_url }}"
+    dest: "./{{ yml_file_of_cr_values }}"
+    mode: '666'
+
+- name: Import new rules as variables from yml file
+  include_vars: "{{ yml_file_of_cr_values }}"
+# SECTION END: One time file operations
+
+# BLOCK START: for skipping steps if there were no new CR
+- block:
+    # SECTION START: Get the Cherwell Field ID for the fields we will need to hit to close out a CR
+    - name: Parse out fieldID from template for cherwell changerequest ActualEndDate field
+      set_fact:
+        change_request_fieldid_actual_end_date: "{{ item.fieldId }}"
+      with_items:
+        - "{{ fieldid_busobj_template_result.json.fields }}"
+      when: item.name == "ActualEndDate"
+
+    - name: Parse out fieldID from template for cherwell changerequest ActualStartDate field
+      set_fact:
+        change_request_fieldid_actual_start_date: "{{ item.fieldId }}"
+      with_items:
+        - "{{ fieldid_busobj_template_result.json.fields }}"
+      when: item.name == "ActualStartDate"
+
+    - name: Parse out fieldID from template for cherwell changerequest PostImplementationReviewNotes field
+      set_fact:
+        change_request_fieldid_review_notes: "{{ item.fieldId }}"
+      with_items:
+        - "{{ fieldid_busobj_template_result.json.fields }}"
+      when: item.name == "PostImplementationReviewNotes"
+
+    - name: Parse out fieldID from template for cherwell changerequest FinalDisposition field
+      set_fact:
+        change_request_fieldid_disposition: "{{ item.fieldId }}"
+      with_items:
+        - "{{ fieldid_busobj_template_result.json.fields }}"
+      when: item.name == "FinalDisposition"
+
+    - name: Parse out fieldID from template for cherwell changerequest FinalDisposition field
+      set_fact:
+        change_request_fieldid_ownedby_user: "{{ item.fieldId }}"
+      with_items:
+        - "{{ fieldid_busobj_template_result.json.fields }}"
+      when: item.name == "OwnedBy"
+
+    - name: Parse out fieldID from template for cherwell changerequest FinalDisposition field
+      set_fact:
+        change_request_fieldid_ownedby_team: "{{ item.fieldId }}"
+      with_items:
+        - "{{ fieldid_busobj_template_result.json.fields }}"
+      when: item.name == "OwnedByTeam"
+    # SECTION END: Get the Cherwell Field ID for the fields we will need to hit to close out a CR
+
+    - name: Close change requests
+      uri:
+        url: "{{ cherwell_url_a }}{{ cherwell_save_bus_ob_url }}"
+        method: POST
+        headers:
+          authorization: "bearer {{ cherwell_api_token }}"
+        body_format: json
+        body: '
+          {
+            "busObId": "{{ change_request_business_object_id }}",
+            "busObRecId": "{{ item.cherwell_business_object_record_id }}",
+            "fields": [
+              {
+                "dirty": true,
+                "fieldId": "{{ change_request_fieldid_disposition }}",
+                "value": "Successful"
+              },
+              {
+                "dirty": true,
+                "fieldId": "{{ change_request_fieldid_review_notes }}",
+                "value": "Implemented by tower automated deployment schedule: ansible-firewall_security_rule_master"
+              },
+              {
+                "dirty": true,
+                "fieldId": "{{ change_request_fieldid_actual_start_date }}",
+                "value": "{{ actual_start_date_and_time }}"
+              },
+              {
+                "dirty": true,
+                "fieldId": "{{ change_request_fieldid_actual_end_date }}",
+                "value": "{{ actual_end_date_and_time }}"
+              },
+              {
+                "dirty": true,
+                "fieldId": "{{ change_request_fieldid_ownedby_user }}",
+                "value": "{{ cherwell_owned_by_user }}"
+              },
+              {
+                "dirty": true,
+                "fieldId": "{{ change_request_fieldid_status }}",
+                "value": "Closed"
+              }
+              ]
+            }'
+      with_items:
+        - "{{ cr }}"
+
+    - name: Create list of all CR closed
+      set_fact:
+        list_of_cr_closed: "{{ list_of_cr_closed }} + [ '{{ item.cr_tag_name }}' ]"
+      with_items:
+        - "{{ cr }}"
+
+  when: not(cr is none)
+  # BLOCK END: for skipping steps if there were no new CR
+
+- name: Close cherwell API connection now that we are done with it for "{{ run_mode }}" mode.
+  import_tasks: cherwell_api_close.yml
+
+- name: Courtesy message, all CR completed and closed by this job run
+  debug:
+    msg: "{{ list_of_cr_closed }}"

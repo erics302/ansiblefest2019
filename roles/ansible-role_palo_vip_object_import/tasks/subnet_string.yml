@@ -1,0 +1,9 @@
+---
+###
+## Convert the subnet to a string for the object naming convention
+- name: Convert the / in cidr notation to _ for name.
+  set_fact:
+    subnetname: "{{ outer_bd.subnet | regex_replace('/', '_') }}"
+- name: Convert the . in cidr notation to _ for name.
+  set_fact:
+    subnetname: "{{ subnetname | regex_replace('\\.', '_') }}"

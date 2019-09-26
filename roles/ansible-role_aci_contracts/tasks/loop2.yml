@@ -1,0 +1,38 @@
+---
+# loop2.yml aka the loop on the source addresses.
+# This playbook is looped through per source EPG from loop.yml
+# START_SECTION: set fact vars|templates for conditionals.  Ansible warns on jinja2 templating in when statements so this is the workaround to use set_fact.
+- name: Split tenant and EPG name portion from"{{ source_item }}"
+  set_fact:
+    source_tenant: "{{ source_item.split('_')[0] }}"
+    source_epg: "{{ source_item | regex_replace(source_item.split('_')[0]+'_','') }}"
+    # Because the value we get from Cherwell will be example TENANTNAME_EPGNAME , the regex above strips off the TENANT_ part leaving EPG significant name.
+
+# END_SECTION: set fact vars|templates for conditionals.  Ansible warns on jinja2 templating in when statements.
+
+# To get started, need the exact AP and EPG names of the source address
+- name: include ap_epg_query.yml for source "{{ source_item }}"
+  include: ap_epg_query.yml
+  with_items:
+    - "{{ source_item }}"
+  loop_control:
+    loop_var: epg_name
+  when: not(source_tenant == source_epg)
+  ## The when statement checks if the address object is really one of the special objects representing an entire tenant. because then we wouldn't query for an EPG/AP
+
+# We will use ap_epg_query in the subloop for dest EPG/ANP so let's move the values we retrieved for the source to new vars off of the ap_epg_query playbooks return vars.
+- name: Take return EPG name "{{ return_val_epg }}" and set to var named source_epg and return AP name "{{ return_val_ap }}" and set to var named source_ap
+  set_fact:
+    source_epg_aci_string: "{{ return_val_epg }}"
+    source_ap_aci_string: "{{ return_val_ap }}"
+  when: not(source_tenant == source_epg)
+
+# Now subloop through each destination paired with the source on this main loop iteration.
+- name: loop3.yml
+  include: loop3.yml
+  with_items:
+    - "{{ intratenant_dest_address_list }}"
+  loop_control:
+    loop_var: destination_item
+
+# Now this playbook will loop through for the next source EPG, if there is more sources.

@@ -1,0 +1,1 @@
+{{ user_id_tenant_name }},{{ item.split(',')[-2] | regex_replace('dc=', '')  }}\{{ item.split(',')[0] | regex_replace('cn=sec-ia-', 'sec-ia-') }},

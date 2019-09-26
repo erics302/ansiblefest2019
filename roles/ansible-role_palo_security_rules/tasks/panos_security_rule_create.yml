@@ -1,0 +1,56 @@
+---
+- name: Create Palo APP-ID standard rule for "{{ cr_line.cr_tag_name }}".
+  panos_security_rule:
+    ip_address: "{{ ip_address }}"
+    api_key: "{{ api_string }}"
+    device_group: "{{ device_group_to_conf }}"
+    state: present
+    rule_name: "{{ rule_name_standard_app }}"
+    description: "{{ cr_line.desc }}"
+    source_ip: "{{ source_address_list_to_conf }}"
+    source_user: "{{ source_user_list_to_conf }}"
+    destination_ip: "{{ dest_address_list_to_conf }}"
+    application: "{{ applications_appid_list }}"
+    tag_name: ["{{ cr_line.cr_tag_name }}"]
+    rulebase: "{{ palo_rulebase }}"
+    log_setting: "{{ palo_logging_profile }}"
+    group_profile: "{{ security_profile_to_conf }}"
+    source_zone: "{{ source_zones_to_conf }}"
+    destination_zone: "{{ dest_zones_to_conf }}"
+    action: 'allow'
+    commit: false
+  when: ((applications_appid_list | length) > 0)
+
+- name: Create Palo service-only rule for "{{ cr_line.cr_tag_name }}"
+  panos_security_rule:
+    ip_address: "{{ ip_address }}"
+    api_key: "{{ api_string }}"
+    device_group: "{{ device_group_to_conf }}"
+    state: present
+    rule_name: "{{ rule_name_standard_service }}"
+    description: "{{ cr_line.desc }}"
+    source_ip: "{{ source_address_list_to_conf }}"
+    source_user: "{{ source_user_list_to_conf }}"
+    destination_ip: "{{ dest_address_list_to_conf }}"
+    service: "{{ service_only_list }}"
+    tag_name: ["{{ cr_line.cr_tag_name }}"]
+    rulebase: "{{ palo_rulebase }}"
+    log_setting: "{{ palo_logging_profile }}"
+    group_profile: "{{ security_profile_to_conf }}"
+    source_zone: "{{ source_zones_to_conf }}"
+    destination_zone: "{{ dest_zones_to_conf }}"
+    action: 'allow'
+    commit: false
+  when: ((service_only_list | length) > 0)
+
+- name: Instantiate loop counter for appid/non standard port subloop.
+  # this counter is used to assign unique rule names
+  set_fact:
+    appid_nonstandard_port_list_loop_counter: "0"
+
+- name: Loop create fw rules where app-id is used with nonstandard port.
+  include: panos_security_rule_create_appid_nonstandard_port_subloop.yml
+  with_together:
+    - "{{ applications_appid_nonstandard_port_list }}"
+    - "{{ services_appid_nonstandard_port_list }}"
+  when: ((applications_appid_nonstandard_port_list | length) > 0)
